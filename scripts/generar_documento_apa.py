@@ -320,7 +320,9 @@ def main():
     ap = argparse.ArgumentParser(
         description="Compila un borrador Markdown a un documento APA 7 (.docx / .pdf)."
     )
-    ap.add_argument("borrador", nargs="?", help="Ruta al archivo borrador.md")
+    ap.add_argument("borrador", nargs="?", help="Ruta al archivo borrador.md (o usa --input)")
+    ap.add_argument("--input", default=None, help="Ruta al archivo borrador.md (alternativa al posicional)")
+    ap.add_argument("--output", default=None, help="Ruta del .docx de salida (por defecto, junto al borrador)")
     ap.add_argument("--pdf", action="store_true", help="Genera también el .pdf vía LibreOffice")
     ap.add_argument("--estimar", action="store_true", help="Cuenta palabras y estima páginas")
     ap.add_argument("--salida", default=None, help="Carpeta de salida (por defecto, junto al borrador)")
@@ -333,10 +335,11 @@ def main():
         print(f"Plantilla generada: {path}")
         return
 
-    if not args.borrador:
-        ap.error("Debes indicar el archivo borrador.md o usar --plantilla")
+    borrador = args.input or args.borrador
+    if not borrador:
+        ap.error("Debes indicar el archivo borrador.md (posicional o --input) o usar --plantilla")
 
-    with open(args.borrador, encoding="utf-8") as f:
+    with open(borrador, encoding="utf-8") as f:
         text = f.read()
 
     if args.estimar:
@@ -353,10 +356,17 @@ def main():
     add_cover(doc, meta)
     add_body(doc, meta, tokens)
 
-    src_dir = args.salida or os.path.dirname(os.path.abspath(args.borrador))
+    if args.output:
+        out_docx = args.output
+        if not out_docx.lower().endswith(".docx"):
+            out_docx += ".docx"
+        src_dir = os.path.dirname(os.path.abspath(out_docx))
+        base = os.path.splitext(os.path.basename(out_docx))[0]
+    else:
+        src_dir = args.salida or os.path.dirname(os.path.abspath(borrador))
+        base = os.path.splitext(os.path.basename(borrador))[0]
+        out_docx = os.path.join(src_dir, base + ".docx")
     os.makedirs(src_dir, exist_ok=True)
-    base = os.path.splitext(os.path.basename(args.borrador))[0]
-    out_docx = os.path.join(src_dir, base + ".docx")
     doc.save(out_docx)
     print(f"DOCX generado: {out_docx}")
 

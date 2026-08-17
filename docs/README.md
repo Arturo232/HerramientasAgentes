@@ -12,7 +12,7 @@ HerramientasAgente/
 ├── docs/
 │   └── README.md          # Esta guía
 ├── skills/
-│   └── ensayo_apa.md      # Instrucciones persistentes del agente redactor
+│   └── SKILL.md            # Instrucciones persistentes del agente redactor
 ├── scripts/
 │   └── generar_documento_apa.py  # Compilador Markdown → .docx / .pdf
 ├── plantillas/
@@ -39,21 +39,26 @@ python3 -m venv .venv
 
 ## Uso del compilador
 
+Se admiten dos formas equivalentes: la posicional o las opciones `--input`/`--output`.
+
 ```bash
-# Generar solo el .docx
+# Generar solo el .docx (forma posicional)
 .venv/bin/python scripts/generar_documento_apa.py ruta/al/borrador.md
+
+# Forma explícita con --input y --output
+.venv/bin/python scripts/generar_documento_apa.py --input ruta/al/borrador.md --output salida/ensayo_final.docx
 
 # Generar .docx y .pdf en la misma carpeta del borrador
 .venv/bin/python scripts/generar_documento_apa.py ruta/al/borrador.md --pdf
 
 # Estimar páginas del borrador (~250 palabras/página)
-.venv/bin/python scripts/generar_documento_apa.py ruta/al/borrador.md --estimar
+.venv/bin/python scripts/generar_documento_apa.py --input ruta/al/borrador.md --estimar
 
 # Regenerar la plantilla base apa_base.docx
 .venv/bin/python scripts/generar_documento_apa.py --plantilla
 ```
 
-El archivo `.docx` de salida se guarda junto al borrador con el mismo nombre (`borrador.docx`). El `.pdf` se genera con LibreOffice en modo headless.
+Sin `--output`, el `.docx` se guarda junto al borrador con el mismo nombre (`borrador.docx`). El `.pdf` se genera con LibreOffice en modo headless en la misma carpeta.
 
 ### Formato del borrador (front-matter)
 
@@ -86,4 +91,21 @@ Markdown soportado: encabezados (`#`/`##`/`###`), negrita, cursiva, listas orden
 2. Redacta el texto completo en `borrador.md` cubriendo la extensión requerida (~250 palabras por página).
 3. Compila con `generar_documento_apa.py` y entrega el `.docx` / `.pdf` final.
 
-La skill `skills/ensayo_apa.md` registra las reglas formales, los datos del estudiante y el protocolo de redacción.
+La skill `skills/SKILL.md` registra las reglas formales, los datos del estudiante y el protocolo de redacción.
+
+## Skill global de OpenCode
+
+La skill está además registrada globalmente en OpenCode para que esté disponible en cualquier terminal:
+
+```
+~/.config/opencode/skills/ensayo-apa/SKILL.md
+```
+
+Es la misma skill versionada en `skills/SKILL.md` de este repositorio. Al clonar el repo en otra máquina, para activarla globalmente:
+
+```bash
+mkdir -p ~/.config/opencode/skills/ensayo-apa
+cp skills/SKILL.md ~/.config/opencode/skills/ensayo-apa/SKILL.md
+```
+
+Tras copiarla o modificarla, reiniciar OpenCode para que la skill se cargue.

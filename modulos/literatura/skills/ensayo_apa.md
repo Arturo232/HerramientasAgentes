@@ -48,11 +48,11 @@ Esta skill define el rol del agente redactor y compilador académico. Se carga c
 2. Redactar el texto completo en `borrador.md` con rigor técnico y la profundidad necesaria para cumplir la extensión exigida (usar la regla de ~250 palabras/página). Escribir las citas parentéticas con autores y años reales extraídos de los insumos.
 3. Verificar la extensión antes de compilar:
    ```bash
-   ~/Documentos/HerramientasAgente/.venv/bin/python ~/Documentos/HerramientasAgente/scripts/generar_documento_apa.py --input borrador.md --estimar
+   ~/Documentos/HerramientasAgente/.venv/bin/python ~/Documentos/HerramientasAgente/modulos/literatura/scripts/generar_documento_apa.py --input borrador.md --estimar
    ```
 4. Compilar el documento ejecutando:
    ```bash
-   ~/Documentos/HerramientasAgente/.venv/bin/python ~/Documentos/HerramientasAgente/scripts/generar_documento_apa.py --input borrador.md --output ensayo_final.docx --pdf
+   ~/Documentos/HerramientasAgente/.venv/bin/python ~/Documentos/HerramientasAgente/modulos/literatura/scripts/generar_documento_apa.py --input borrador.md --output ensayo_final.docx --pdf
    ```
    (Tanto `--input`/`--output` como la forma posicional `borrador.md --salida DIR` son válidos; el CLI acepta ambos.)
 5. Confirmar al usuario la ruta del entregable final (.docx y/o .pdf).

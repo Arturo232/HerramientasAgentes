@@ -1,8 +1,20 @@
-# HerramientasAgente
+# HerramientasAgente — Suite Académica Modular
 
-Backend académico automatizado para la elaboración de trabajos universitarios bajo el estándar de **Normas APA 7.ª edición** (ensayos, informes, proyectos y presentaciones).
+Backend académico automatizado para la elaboración de trabajos universitarios: ensayos e informes en **Normas APA 7.ª edición**, presentaciones e infografías con plantillas PPTX, y módulos especializados por facultades (Literatura, Matemáticas, Biología/Ciencias, Programación/Tecnología y Artes/Diseño).
 
-Este repositorio convierte un borrador escrito en **Markdown** (`borrador.md`) en un documento final **.docx** (compatible con Google Docs) y opcionalmente **.pdf**, aplicando automáticamente todos los estilos APA 7 (portada institucional, márgenes, tipografía, interlineado, sangrías, paginación y referencias).
+El sistema se organiza alrededor de un **Orquestador Maestro** ("Decano") que recibe la petición del usuario y la delega al módulo especializado correspondiente.
+
+## El Orquestador Maestro
+
+El usuario solo interactúa con el Orquestador (skill `orquestador-maestro`). Este analiza la petición y enruta al módulo adecuado:
+
+| Petición | Módulo | Skill |
+|---|---|---|
+| Ensayo, resumen o texto formal | `literatura` | `ensayo_apa.md` |
+| Infografía, diapositivas o visual | `artes_diseno` | `disenador_grafico.md` |
+| Problemas numéricos o estadística | `matematicas` | `analista_logico.md` |
+| Fenómenos naturales, ecosistemas, cuerpo humano | `biologia_y_ciencias` | `investigador_cientifico.md` |
+| Código, scripts, ayuda con Arch Linux | `programacion_y_tech` | `ingeniero_software.md` |
 
 ## Estructura del repositorio
 
@@ -10,17 +22,29 @@ Este repositorio convierte un borrador escrito en **Markdown** (`borrador.md`) e
 HerramientasAgente/
 ├── .gitignore
 ├── docs/
-│   └── README.md              # Esta guía
+│   └── README.md                     # Esta guía
 ├── skills/
-│   ├── SKILL.md               # Instrucciones del agente redactor (ensayos APA 7)
-│   └── presentador.md         # Instrucciones del agente de presentaciones/infografías
-├── scripts/
-│   ├── generar_documento_apa.py   # Compilador Markdown → .docx / .pdf
-│   └── generar_pptx.py            # Inyección de texto en plantillas PPTX → .pptx / .pdf
+│   └── orquestador_maestro.md        # Decano: enrutador central del sistema
+├── modulos/
+│   ├── literatura/
+│   │   ├── skills/ensayo_apa.md      # Redactor Académico APA 7
+│   │   └── scripts/generar_documento_apa.py   # Compilador Markdown → .docx / .pdf
+│   ├── matematicas/
+│   │   ├── skills/analista_logico.md # Ecuaciones, cálculo y estadística
+│   │   └── scripts/                  # (por definir)
+│   ├── biologia_y_ciencias/
+│   │   ├── skills/investigador_cientifico.md  # Método científico y ecosistemas
+│   │   └── scripts/                  # (por definir)
+│   ├── programacion_y_tech/
+│   │   ├── skills/ingeniero_software.md  # Python, bash de Arch, arquitectura
+│   │   └── scripts/                  # (por definir)
+│   └── artes_diseno/
+│       ├── skills/disenador_grafico.md      # Director de Arte Senior
+│       ├── scripts/motor_pptx_visual.py     # Inyección en plantillas PPTX
+│       └── plantillas/pptx/                 # Plantillas PPTX con etiquetas {{LLAVE}}
 ├── plantillas/
-│   ├── apa_base.docx               # Plantilla base con estilos APA 7 (regenerable)
-│   └── pptx/                       # Plantillas PPTX del usuario (con etiquetas {{LLAVE}})
-└── requirements.txt       # Dependencias de Python
+│   └── apa_base.docx                 # Plantilla base APA 7 (regenerable)
+└── requirements.txt                  # Dependencias de Python
 ```
 
 ## Requisitos del sistema
@@ -32,7 +56,7 @@ HerramientasAgente/
 ## Instalación en otra máquina
 
 ```bash
-git clone <ruta-o-url-del-repositorio> HerramientasAgente
+git clone git@github.com:Arturo232/HerramientasAgentes.git HerramientasAgente
 cd HerramientasAgente
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
@@ -40,58 +64,40 @@ python3 -m venv .venv
 
 > Nota: el entorno virtual `.venv/` no se versiona; debe recrearse en cada máquina.
 
-## Uso del compilador
+Para activar las skills globales de OpenCode (ver sección final):
+
+```bash
+mkdir -p ~/.config/opencode/skills/{ensayo-apa,disenador-grafico,analista-logico,investigador-cientifico,ingeniero-software,orquestador-maestro}
+cp modulos/literatura/skills/ensayo_apa.md ~/.config/opencode/skills/ensayo-apa/SKILL.md
+cp modulos/artes_diseno/skills/disenador_grafico.md ~/.config/opencode/skills/disenador-grafico/SKILL.md
+cp modulos/matematicas/skills/analista_logico.md ~/.config/opencode/skills/analista-logico/SKILL.md
+cp modulos/biologia_y_ciencias/skills/investigador_cientifico.md ~/.config/opencode/skills/investigador-cientifico/SKILL.md
+cp modulos/programacion_y_tech/skills/ingeniero_software.md ~/.config/opencode/skills/ingeniero-software/SKILL.md
+cp skills/orquestador_maestro.md ~/.config/opencode/skills/orquestador-maestro/SKILL.md
+```
+
+## Módulo de Literatura: compilador APA 7
 
 Se admiten dos formas equivalentes: la posicional o las opciones `--input`/`--output`.
 
 ```bash
 # Generar solo el .docx (forma posicional)
-.venv/bin/python scripts/generar_documento_apa.py ruta/al/borrador.md
+.venv/bin/python modulos/literatura/scripts/generar_documento_apa.py ruta/al/borrador.md
 
 # Forma explícita con --input y --output
-.venv/bin/python scripts/generar_documento_apa.py --input ruta/al/borrador.md --output salida/ensayo_final.docx
+.venv/bin/python modulos/literatura/scripts/generar_documento_apa.py --input ruta/al/borrador.md --output salida/ensayo_final.docx
 
 # Generar .docx y .pdf en la misma carpeta del borrador
-.venv/bin/python scripts/generar_documento_apa.py ruta/al/borrador.md --pdf
+.venv/bin/python modulos/literatura/scripts/generar_documento_apa.py ruta/al/borrador.md --pdf
 
 # Estimar páginas del borrador (~250 palabras/página)
-.venv/bin/python scripts/generar_documento_apa.py --input ruta/al/borrador.md --estimar
+.venv/bin/python modulos/literatura/scripts/generar_documento_apa.py --input ruta/al/borrador.md --estimar
 
 # Regenerar la plantilla base apa_base.docx
-.venv/bin/python scripts/generar_documento_apa.py --plantilla
+.venv/bin/python modulos/literatura/scripts/generar_documento_apa.py --plantilla
 ```
 
 Sin `--output`, el `.docx` se guarda junto al borrador con el mismo nombre (`borrador.docx`). El `.pdf` se genera con LibreOffice en modo headless en la misma carpeta.
-
-## Motor de plantillas PPTX (diapositivas e infografías)
-
-Inyecta texto en una plantilla de PowerPoint (`.pptx`) a partir de un JSON de etiquetas y exporta el resultado a `.pdf`:
-
-```bash
-.venv/bin/python scripts/generar_pptx.py \
-  --plantilla plantillas/pptx/plantilla_diapositivas.pptx \
-  --input datos_presentacion.json \
-  --salida presentacion_generada.pptx
-```
-
-### Cómo etiquetar una plantilla
-
-1. En cada cuadro de texto que quieras reemplazar, escribe una etiqueta entre dobles llaves: `{{TITULO}}`, `{{SUBTITULO}}`, `{{TEXTO_1}}`, `{{CELDA_A}}`, etc.
-2. Guarda la plantilla en `plantillas/pptx/`.
-3. Crea `datos_presentacion.json` con los pares etiqueta → texto:
-
-```json
-{
-  "{{TITULO}}": "El Sistema Financiero",
-  "{{SUBTITULO}}": "Una visión desde Colombia",
-  "{{TEXTO_1}}": "El Banco de la República controla la inflación...",
-  "{{TEXTO_2}}": "La Superintendencia Financiera vigila el sistema."
-}
-```
-
-El reemplazo respeta el formato original de cada cuadro (fuente, color, tamaño) y funciona en cuadros de texto, placeholders, tablas, grupos y notas del orador. El script advierte sobre etiquetas del JSON no usadas o etiquetas de la plantilla sin reemplazo.
-
-Con `--no-pdf` se omite la conversión a PDF. La skill `skills/presentador.md` define el rol de creador de contenido, las reglas de redacción humanizada y las normas del JSON.
 
 ### Formato del borrador (front-matter)
 
@@ -118,29 +124,52 @@ Texto del párrafo con citas parentéticas (Apellido, año).
 
 Markdown soportado: encabezados (`#`/`##`/`###`), negrita, cursiva, listas ordenadas y no ordenadas, citas en bloque (con `>` para citas de 40+ palabras) y la sección final `## Referencias` (con sangría francesa automática).
 
-## Flujo de trabajo
+## Módulo de Artes y Diseño: motor PPTX
 
-1. El agente lee los insumos (PDF, notas, .txt) de la carpeta del trabajo.
-2. Redacta el texto completo en `borrador.md` cubriendo la extensión requerida (~250 palabras por página) y aplicando las reglas de **refinamiento de estilo** de la skill (variabilidad sintáctica, ritmo natural, transiciones variadas y sin muletillas de IA). El borrador nace con estilo natural; no hay pasos intermedios de reescritura.
-3. Compila con `generar_documento_apa.py` y entrega el `.docx` / `.pdf` final.
+Inyecta texto en una plantilla de PowerPoint (`.pptx`) a partir de un JSON de etiquetas y exporta el resultado a `.pdf`:
 
-La skill `skills/SKILL.md` registra las reglas formales, los datos del estudiante y el protocolo de redacción.
+```bash
+.venv/bin/python modulos/artes_diseno/scripts/motor_pptx_visual.py \
+  --plantilla modulos/artes_diseno/plantillas/pptx/plantilla_finanzas_doodle.pptx \
+  --input datos_diseno.json \
+  --salida diseno_generado.pptx
+```
+
+### Cómo etiquetar una plantilla
+
+1. En cada cuadro de texto que quieras reemplazar, escribe una etiqueta entre dobles llaves: `{{TITULO}}`, `{{SUBTITULO}}`, `{{TEXTO_1}}`, `{{CELDA_A}}`, etc.
+2. Guarda la plantilla en `modulos/artes_diseno/plantillas/pptx/`.
+3. Crea `datos_diseno.json` con los pares etiqueta → texto:
+
+```json
+{
+  "{{TITULO}}": "El Sistema Financiero",
+  "{{SUBTITULO}}": "Una visión desde Colombia",
+  "{{TEXTO_1}}": "El Banco de la República controla la inflación...",
+  "{{TEXTO_2}}": "La Superintendencia Financiera vigila el sistema."
+}
+```
+
+El reemplazo **preserva exactamente el objeto font** de cada cuadro (nombre, tamaño, negrita, cursiva, color) y funciona en cuadros de texto, placeholders, tablas, grupos y notas del orador. El script advierte sobre etiquetas del JSON no usadas o etiquetas de la plantilla sin reemplazo. Con `--no-pdf` se omite la conversión a PDF.
 
 ## Skills globales de OpenCode
 
-Las skills están además registradas globalmente en OpenCode para estar disponibles en cualquier terminal:
+Todas las skills están registradas globalmente para estar disponibles en cualquier terminal:
 
 ```
+~/.config/opencode/skills/orquestador-maestro/SKILL.md   # Decano (punto de entrada)
 ~/.config/opencode/skills/ensayo-apa/SKILL.md
-~/.config/opencode/skills/presentador/SKILL.md
-```
-
-Son las mismas skills versionadas en `skills/SKILL.md` y `skills/presentador.md` de este repositorio. Al clonar el repo en otra máquina, para activarlas globalmente:
-
-```bash
-mkdir -p ~/.config/opencode/skills/ensayo-apa ~/.config/opencode/skills/presentador
-cp skills/SKILL.md ~/.config/opencode/skills/ensayo-apa/SKILL.md
-cp skills/presentador.md ~/.config/opencode/skills/presentador/SKILL.md
+~/.config/opencode/skills/disenador-grafico/SKILL.md
+~/.config/opencode/skills/analista-logico/SKILL.md
+~/.config/opencode/skills/investigador-cientifico/SKILL.md
+~/.config/opencode/skills/ingeniero-software/SKILL.md
 ```
 
 Tras copiarlas o modificarlas, reiniciar OpenCode para que se carguen.
+
+## Flujo de trabajo
+
+1. El usuario hace su petición al **Orquestador Maestro**.
+2. El Orquestador identifica el módulo y delega a la skill especializada.
+3. El especialista lee los insumos, redacta o resuelve y ejecuta los scripts de su módulo.
+4. El entregable final (.docx, .pdf, .pptx) queda en la carpeta del trabajo.

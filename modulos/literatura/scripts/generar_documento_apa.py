@@ -31,7 +31,7 @@ CENTER = WD_ALIGN_PARAGRAPH.CENTER
 LEFT = WD_ALIGN_PARAGRAPH.LEFT
 RIGHT = WD_ALIGN_PARAGRAPH.RIGHT
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 MESES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",

@@ -3,8 +3,8 @@
 """Inyecta texto en plantillas PPTX a partir de un JSON de etiquetas y exporta a PDF.
 
 Uso:
-    generar_pptx.py --plantilla base.pptx --input datos_presentacion.json --salida salida.pptx
-    generar_pptx.py --plantilla base.pptx --input datos.json --salida salida.pptx --no-pdf
+    motor_pptx_visual.py --plantilla base.pptx --input datos_diseno.json --salida diseno_generado.pptx
+    motor_pptx_visual.py --plantilla base.pptx --input datos.json --salida salida.pptx --no-pdf
 """
 
 import argparse
@@ -74,8 +74,8 @@ def etiquetas_pendientes(presentacion):
 def main():
     ap = argparse.ArgumentParser(description="Reemplaza etiquetas {{LLAVE}} en una plantilla PPTX.")
     ap.add_argument("--plantilla", required=True, help="Ruta a la plantilla .pptx base")
-    ap.add_argument("--input", default="datos_presentacion.json", help="Ruta al JSON de etiquetas")
-    ap.add_argument("--salida", default="presentacion_generada.pptx", help="Ruta del .pptx de salida")
+    ap.add_argument("--input", default="datos_diseno.json", help="Ruta al JSON de etiquetas")
+    ap.add_argument("--salida", default="diseno_generado.pptx", help="Ruta del .pptx de salida")
     ap.add_argument("--no-pdf", action="store_true", help="No convertir el resultado a PDF")
     args = ap.parse_args()
 

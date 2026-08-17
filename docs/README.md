@@ -13,22 +13,20 @@ HerramientasAgente/
 │   └── README.md              # Esta guía
 ├── skills/
 │   ├── SKILL.md               # Instrucciones del agente redactor (ensayos APA 7)
-│   └── infografia.md          # Instrucciones del agente de infografías
+│   └── presentador.md         # Instrucciones del agente de presentaciones/infografías
 ├── scripts/
 │   ├── generar_documento_apa.py   # Compilador Markdown → .docx / .pdf
-│   └── generar_infografia.py      # Generador de infografías PDF (JSON → HTML → PDF)
+│   └── generar_pptx.py            # Inyección de texto en plantillas PPTX → .pptx / .pdf
 ├── plantillas/
 │   ├── apa_base.docx               # Plantilla base con estilos APA 7 (regenerable)
-│   └── infografia/
-│       └── base_timeline.html      # Plantilla de cronología vertical (Jinja2)
+│   └── pptx/                       # Plantillas PPTX del usuario (con etiquetas {{LLAVE}})
 └── requirements.txt       # Dependencias de Python
 ```
 
 ## Requisitos del sistema
 
 - **Python 3.10+** con `venv` y `pip`
-- **LibreOffice** (opcional, solo para generar el `.pdf` de ensayos)
-- **Chromium** (opcional, para infografías; si no existe se usa el navegador de Playwright)
+- **LibreOffice** (opcional, para generar el `.pdf` de ensayos y presentaciones)
 - Fuente Times New Roman (o Liberation Serif, métricamente idéntica)
 
 ## Instalación en otra máquina
@@ -65,30 +63,35 @@ Se admiten dos formas equivalentes: la posicional o las opciones `--input`/`--ou
 
 Sin `--output`, el `.docx` se guarda junto al borrador con el mismo nombre (`borrador.docx`). El `.pdf` se genera con LibreOffice en modo headless en la misma carpeta.
 
-## Generador de infografías
+## Motor de plantillas PPTX (diapositivas e infografías)
 
-Convierte un archivo de datos JSON en un PDF vectorial (cronología vertical, orientación A4) usando Jinja2 + Playwright:
+Inyecta texto en una plantilla de PowerPoint (`.pptx`) a partir de un JSON de etiquetas y exporta el resultado a `.pdf`:
 
 ```bash
-# Generar la infografía desde datos_infografia.json
-.venv/bin/python scripts/generar_infografia.py --input datos_infografia.json --salida infografia.pdf
+.venv/bin/python scripts/generar_pptx.py \
+  --plantilla plantillas/pptx/plantilla_diapositivas.pptx \
+  --input datos_presentacion.json \
+  --salida presentacion_generada.pptx
 ```
 
-### Formato de los datos (datos_infografia.json)
+### Cómo etiquetar una plantilla
+
+1. En cada cuadro de texto que quieras reemplazar, escribe una etiqueta entre dobles llaves: `{{TITULO}}`, `{{SUBTITULO}}`, `{{TEXTO_1}}`, `{{CELDA_A}}`, etc.
+2. Guarda la plantilla en `plantillas/pptx/`.
+3. Crea `datos_presentacion.json` con los pares etiqueta → texto:
 
 ```json
 {
-  "titulo": "Título corto y llamativo",
-  "subtitulo": "Contexto humano y directo",
-  "pasos": [
-    { "numero": "01", "titulo_paso": "Idea clave", "descripcion": "Texto humanizado (máx 3 líneas)." }
-  ]
+  "{{TITULO}}": "El Sistema Financiero",
+  "{{SUBTITULO}}": "Una visión desde Colombia",
+  "{{TEXTO_1}}": "El Banco de la República controla la inflación...",
+  "{{TEXTO_2}}": "La Superintendencia Financiera vigila el sistema."
 }
 ```
 
-La skill `skills/infografia.md` define el rol de sintetizador visual, las reglas de redacción humanizada (sin clichés de IA) y las normas del JSON (4-8 pasos, números de dos dígitos, descripciones de máx. 3 líneas).
+El reemplazo respeta el formato original de cada cuadro (fuente, color, tamaño) y funciona en cuadros de texto, placeholders, tablas, grupos y notas del orador. El script advierte sobre etiquetas del JSON no usadas o etiquetas de la plantilla sin reemplazo.
 
-> El render usa Chromium del sistema (`/usr/bin/chromium`) si está instalado; en caso contrario descarga el navegador de Playwright con `playwright install chromium`.
+Con `--no-pdf` se omite la conversión a PDF. La skill `skills/presentador.md` define el rol de creador de contenido, las reglas de redacción humanizada y las normas del JSON.
 
 ### Formato del borrador (front-matter)
 
@@ -129,15 +132,15 @@ Las skills están además registradas globalmente en OpenCode para estar disponi
 
 ```
 ~/.config/opencode/skills/ensayo-apa/SKILL.md
-~/.config/opencode/skills/infografia/SKILL.md
+~/.config/opencode/skills/presentador/SKILL.md
 ```
 
-Son las mismas skills versionadas en `skills/SKILL.md` y `skills/infografia.md` de este repositorio. Al clonar el repo en otra máquina, para activarlas globalmente:
+Son las mismas skills versionadas en `skills/SKILL.md` y `skills/presentador.md` de este repositorio. Al clonar el repo en otra máquina, para activarlas globalmente:
 
 ```bash
-mkdir -p ~/.config/opencode/skills/ensayo-apa ~/.config/opencode/skills/infografia
+mkdir -p ~/.config/opencode/skills/ensayo-apa ~/.config/opencode/skills/presentador
 cp skills/SKILL.md ~/.config/opencode/skills/ensayo-apa/SKILL.md
-cp skills/infografia.md ~/.config/opencode/skills/infografia/SKILL.md
+cp skills/presentador.md ~/.config/opencode/skills/presentador/SKILL.md
 ```
 
 Tras copiarlas o modificarlas, reiniciar OpenCode para que se carguen.

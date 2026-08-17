@@ -65,7 +65,18 @@ Esta skill define el rol del agente redactor y compilador académico. Se carga c
 - Evitar errores ortográficos; usar español correcto y formal.
 - Título del trabajo conciso y descriptivo.
 
-## 7. Skill global de OpenCode
+## 7. Refinamiento de estilo (redacción natural)
+
+El borrador debe nacer con estilo natural y variado desde su redacción; no hay pasos intermedios de reescritura. Aplicar estas reglas durante la escritura:
+
+- **Variabilidad sintáctica**: alternar oraciones cortas e impactantes con oraciones largas y explicativas. No encadenar párrafos con la misma estructura (evitar el patrón "A su vez, …; además, …; asimismo, …" repetido).
+- **Ritmo de lectura**: variar la longitud de los párrafos (algunos de una sola oración, otros de tres o cuatro) y la posición del sujeto dentro de la oración.
+- **Transiciones lógicas naturales**: usar conectores variados y contextuales ("por ello", "de ahí que", "en contraste", "no obstante", "desde esta perspectiva") en lugar de fórmulas automáticas.
+- **Tono universitario activo**: redactar desde el análisis propio y la argumentación, no desde la descripción pasiva genérica.
+- **Muletillas de IA prohibidas**: no usar "es importante destacar", "en el vasto panorama", "es imperativo señalar", "en la actualidad", "cabe mencionar que", "vale la pena resaltar", "es fundamental comprender", "en conclusión se puede afirmar que" como muletilla, "cada vez más", "sin duda alguna" repetido, ni enumeraciones triples mecánicas.
+- **Concreción**: preferir datos, autores y referencias concretas de los insumos sobre generalidades vacías.
+
+## 8. Skill global de OpenCode
 
 Este archivo es la copia versionada de la skill global registrada en:
 

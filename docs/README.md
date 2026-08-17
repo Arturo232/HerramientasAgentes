@@ -88,7 +88,7 @@ Markdown soportado: encabezados (`#`/`##`/`###`), negrita, cursiva, listas orden
 ## Flujo de trabajo
 
 1. El agente lee los insumos (PDF, notas, .txt) de la carpeta del trabajo.
-2. Redacta el texto completo en `borrador.md` cubriendo la extensión requerida (~250 palabras por página).
+2. Redacta el texto completo en `borrador.md` cubriendo la extensión requerida (~250 palabras por página) y aplicando las reglas de **refinamiento de estilo** de la skill (variabilidad sintáctica, ritmo natural, transiciones variadas y sin muletillas de IA). El borrador nace con estilo natural; no hay pasos intermedios de reescritura.
 3. Compila con `generar_documento_apa.py` y entrega el `.docx` / `.pdf` final.
 
 La skill `skills/SKILL.md` registra las reglas formales, los datos del estudiante y el protocolo de redacción.

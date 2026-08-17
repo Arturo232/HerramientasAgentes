@@ -14,11 +14,77 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.error
+import urllib.request
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+from pptx.oxml.ns import qn
 
 LLAVE_RE = re.compile(r"\{\{[A-Za-z0-9_ÁÉÍÓÚÑáéíóúñ ]+?\}\}")
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+
+ADVERTENCIAS = []
+
+
+def descargar_imagen(url, timeout=30):
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = resp.read()
+        ctype = resp.headers.get("Content-Type", "")
+    ext = "jpg"
+    if "png" in ctype:
+        ext = "png"
+    elif "gif" in ctype:
+        ext = "gif"
+    elif "webp" in ctype:
+        ext = "webp"
+    return data, ext
+
+
+def etiquetas_de_picture(shape):
+    etiquetas = []
+    nombre = (shape.name or "").strip()
+    if LLAVE_RE.search(nombre):
+        etiquetas.extend(LLAVE_RE.findall(nombre))
+    cNvPr = shape._element.find(".//" + qn("p:cNvPr"))
+    if cNvPr is not None:
+        descr = (cNvPr.get("descr") or "").strip()
+        if LLAVE_RE.search(descr):
+            etiquetas.extend(LLAVE_RE.findall(descr))
+    return etiquetas
+
+
+def reemplazar_imagen(picture, data, ext):
+    with tempfile.NamedTemporaryFile(suffix="." + ext, delete=False) as f:
+        f.write(data)
+        tmp_path = f.name
+    try:
+        image_part, rId = picture.part.get_or_add_image_part(tmp_path)
+    finally:
+        os.unlink(tmp_path)
+    blips = picture._element.findall(".//" + qn("a:blip"))
+    if not blips:
+        raise ValueError("La imagen no tiene un blip asociado.")
+    blips[0].set(qn("r:embed"), rId)
+
+
+def procesar_picture(shape, mapeo, encontradas):
+    for etiqueta in etiquetas_de_picture(shape):
+        valor = mapeo.get(etiqueta)
+        if not valor:
+            continue
+        if isinstance(valor, str) and valor.startswith(("http://", "https://")):
+            try:
+                data, ext = descargar_imagen(valor)
+                reemplazar_imagen(shape, data, ext)
+                encontradas.add(etiqueta)
+                print(f"Imagen reemplazada: {etiqueta} <- {valor}")
+            except (urllib.error.URLError, ValueError, OSError) as e:
+                ADVERTENCIAS.append(f"No se pudo descargar {etiqueta} ({valor}): {e}")
+        else:
+            ADVERTENCIAS.append(f"El valor de {etiqueta} no es una URL válida (http/https).")
 
 
 def reemplazar_parrafo(parrafo, mapeo, encontradas):
@@ -53,6 +119,9 @@ def reemplazar_shapes(shapes, mapeo, encontradas):
     for shape in shapes:
         if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
             reemplazar_shapes(shape.shapes, mapeo, encontradas)
+            continue
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
+            procesar_picture(shape, mapeo, encontradas)
             continue
         if shape.has_text_frame:
             reemplazar_text_frame(shape.text_frame, mapeo, encontradas)
@@ -100,6 +169,8 @@ def main():
     no_usadas = sorted(k for k in mapeo if k not in encontradas)
     if no_usadas:
         print(f"Advertencia: etiquetas del JSON no encontradas en la plantilla: {', '.join(no_usadas)}")
+    for advertencia in ADVERTENCIAS:
+        print(f"Advertencia: {advertencia}")
     restantes = etiquetas_pendientes(presentacion)
     if restantes:
         print(f"Advertencia: etiquetas sin reemplazo en la plantilla: {', '.join(sorted(restantes))}")

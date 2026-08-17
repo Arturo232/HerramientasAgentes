@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Infografía</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true });
+  window.addEventListener("load", () => {
+    lucide.createIcons();
+  });
+</script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+
+  <header class="relative h-56 bg-cover bg-center" style="background-image: url('https://loremflickr.com/1200/400/colombia');">
+    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+    <div class="relative flex h-full flex-col justify-end p-8 text-white">
+      <h1 class="text-3xl font-bold">Título del póster</h1>
+      <p class="text-lg opacity-90">Subtítulo: contexto humano y directo.</p>
+    </div>
+  </header>
+
+  <main class="p-8 grid gap-6">
+    <section class="flex items-center gap-3">
+      <i data-lucide="bar-chart-3" class="text-blue-600"></i>
+      <h2 class="text-xl font-semibold">Datos clave</h2>
+    </section>
+
+    <div class="bg-white rounded-xl p-4 shadow">
+      <canvas id="grafico" height="160"></canvas>
+    </div>
+
+    <section class="bg-white rounded-xl p-4 shadow">
+      <div class="mermaid">
+        graph LR
+          A[Actores] --> B[Banco Central]
+          A --> C[Superintendencia]
+          B --> D[Mercado]
+      </div>
+    </section>
+  </main>
+
+  <script>
+    new Chart(document.getElementById("grafico"), {
+      type: "bar",
+      data: {
+        labels: ["A", "B", "C"],
+        datasets: [{ label: "Serie", data: [12, 19, 7], backgroundColor: "#2563eb" }]
+      },
+      options: { animation: false }
+    });
+  </script>
+</body>
+</html>

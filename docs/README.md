@@ -11,7 +11,7 @@ El usuario solo interactúa con el Orquestador (skill `orquestador-maestro`). Es
 | Petición | Módulo | Skill |
 |---|---|---|
 | Ensayo, resumen o texto formal | `literatura` | `ensayo_apa.md` |
-| Infografía, diapositivas o visual | `artes_diseno` | `disenador_grafico.md` |
+| Infografía, diapositivas o visual | `artes_diseno` | `director_creativo.md` |
 | Problemas numéricos o estadística | `matematicas` | `analista_logico.md` |
 | Fenómenos naturales, ecosistemas, cuerpo humano | `biologia_y_ciencias` | `investigador_cientifico.md` |
 | Código, scripts, ayuda con Arch Linux | `programacion_y_tech` | `ingeniero_software.md` |
@@ -39,9 +39,11 @@ HerramientasAgente/
 │   │   ├── skills/ingeniero_software.md  # Python, bash de Arch, arquitectura
 │   │   └── scripts/                  # (por definir)
 │   └── artes_diseno/
-│       ├── skills/disenador_grafico.md      # Director de Arte Senior
-│       ├── scripts/motor_pptx_visual.py     # Inyección en plantillas PPTX
-│       └── plantillas/pptx/                 # Plantillas PPTX con etiquetas {{LLAVE}}
+│       ├── skills/director_creativo.md      # Director Creativo (fotografía + JS)
+│       ├── scripts/motor_pptx_visual.py     # Inyección en plantillas PPTX (texto e imágenes)
+│       ├── scripts/renderizador_playwright.py  # Render HTML → PDF A4 (CDN + JS)
+│       ├── plantillas/pptx/                 # Plantillas PPTX con etiquetas {{LLAVE}}
+│       └── plantillas/html/                 # Plantillas HTML base (Tailwind, Chart.js, Mermaid, Lucide)
 ├── plantillas/
 │   └── apa_base.docx                 # Plantilla base APA 7 (regenerable)
 └── requirements.txt                  # Dependencias de Python
@@ -67,9 +69,9 @@ python3 -m venv .venv
 Para activar las skills globales de OpenCode (ver sección final):
 
 ```bash
-mkdir -p ~/.config/opencode/skills/{ensayo-apa,disenador-grafico,analista-logico,investigador-cientifico,ingeniero-software,orquestador-maestro}
+mkdir -p ~/.config/opencode/skills/{ensayo-apa,director-creativo,analista-logico,investigador-cientifico,ingeniero-software,orquestador-maestro}
 cp modulos/literatura/skills/ensayo_apa.md ~/.config/opencode/skills/ensayo-apa/SKILL.md
-cp modulos/artes_diseno/skills/disenador_grafico.md ~/.config/opencode/skills/disenador-grafico/SKILL.md
+cp modulos/artes_diseno/skills/director_creativo.md ~/.config/opencode/skills/director-creativo/SKILL.md
 cp modulos/matematicas/skills/analista_logico.md ~/.config/opencode/skills/analista-logico/SKILL.md
 cp modulos/biologia_y_ciencias/skills/investigador_cientifico.md ~/.config/opencode/skills/investigador-cientifico/SKILL.md
 cp modulos/programacion_y_tech/skills/ingeniero_software.md ~/.config/opencode/skills/ingeniero-software/SKILL.md
@@ -150,7 +152,19 @@ Inyecta texto en una plantilla de PowerPoint (`.pptx`) a partir de un JSON de et
 }
 ```
 
-El reemplazo **preserva exactamente el objeto font** de cada cuadro (nombre, tamaño, negrita, cursiva, color) y funciona en cuadros de texto, placeholders, tablas, grupos y notas del orador. El script advierte sobre etiquetas del JSON no usadas o etiquetas de la plantilla sin reemplazo. Con `--no-pdf` se omite la conversión a PDF.
+El reemplazo **preserva exactamente el objeto font** de cada cuadro (nombre, tamaño, negrita, cursiva, color) y funciona en cuadros de texto, placeholders, tablas, grupos y notas del orador. También reemplaza imágenes: renombra la imagen de la plantilla como `{{IMAGEN_1}}` y pon su URL en el JSON. El script advierte sobre etiquetas del JSON no usadas o etiquetas de la plantilla sin reemplazo. Con `--no-pdf` se omite la conversión a PDF.
+
+## Módulo de Artes y Diseño: renderizador HTML/Playwright
+
+Renderiza un HTML local a PDF vectorial A4, esperando la carga completa de los CDN (Tailwind, Chart.js, Mermaid, Lucide) antes de imprimir:
+
+```bash
+.venv/bin/python modulos/artes_diseno/scripts/renderizador_playwright.py \
+  --input infografia.html \
+  --salida infografia.pdf
+```
+
+La plantilla de referencia `modulos/artes_diseno/plantillas/html/base_infografia.html` muestra el uso de los cuatro frameworks. El renderizador usa Chromium del sistema (fallback al de Playwright), espera `networkidle` más 1500 ms adicionales y exporta con `print_background=True`. Requiere conexión a internet para los CDN.
 
 ## Skills globales de OpenCode
 
@@ -159,7 +173,7 @@ Todas las skills están registradas globalmente para estar disponibles en cualqu
 ```
 ~/.config/opencode/skills/orquestador-maestro/SKILL.md   # Decano (punto de entrada)
 ~/.config/opencode/skills/ensayo-apa/SKILL.md
-~/.config/opencode/skills/disenador-grafico/SKILL.md
+~/.config/opencode/skills/director-creativo/SKILL.md
 ~/.config/opencode/skills/analista-logico/SKILL.md
 ~/.config/opencode/skills/investigador-cientifico/SKILL.md
 ~/.config/opencode/skills/ingeniero-software/SKILL.md

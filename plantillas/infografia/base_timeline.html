@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{{ titulo }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @page { size: A4 portrait; margin: 0; }
+  html, body { width: 210mm; }
+  body {
+    font-family: "Liberation Sans", "DejaVu Sans", Arial, sans-serif;
+    color: #1e293b;
+    background: #f8fafc;
+    padding: 14mm 12mm;
+  }
+  .cabecera { text-align: center; margin-bottom: 8mm; }
+  .cabecera h1 {
+    font-size: 24pt;
+    line-height: 1.2;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+  }
+  .cabecera p {
+    margin-top: 3mm;
+    font-size: 11.5pt;
+    color: #475569;
+    max-width: 160mm;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .linea { 
+    width: 40mm; height: 1.2mm; background: #2563eb; 
+    margin: 5mm auto 0; border-radius: 2px;
+  }
+  .timeline { position: relative; }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 17mm;
+    top: 2mm;
+    bottom: 2mm;
+    width: 1mm;
+    background: linear-gradient(to bottom, #2563eb, #7c3aed);
+    border-radius: 1px;
+  }
+  .paso { display: flex; align-items: flex-start; margin-bottom: 7mm; }
+  .numero {
+    flex: 0 0 12mm;
+    width: 12mm; height: 12mm;
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 13pt;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+    box-shadow: 0 1mm 2mm rgba(37, 99, 235, 0.35);
+  }
+  .tarjeta {
+    flex: 1;
+    margin-left: 7mm;
+    background: #ffffff;
+    border: 0.4mm solid #e2e8f0;
+    border-left: 2mm solid #2563eb;
+    border-radius: 2mm;
+    padding: 4mm 5mm;
+    box-shadow: 0 1mm 2mm rgba(15, 23, 42, 0.06);
+  }
+  .tarjeta h3 { font-size: 12.5pt; color: #0f172a; margin-bottom: 1.5mm; }
+  .tarjeta p { font-size: 10.5pt; color: #334155; line-height: 1.45; }
+  .pie {
+    margin-top: 6mm;
+    padding-top: 3mm;
+    border-top: 0.3mm solid #e2e8f0;
+    text-align: center;
+    font-size: 9pt;
+    color: #94a3b8;
+  }
+</style>
+</head>
+<body>
+  <header class="cabecera">
+    <h1>{{ titulo }}</h1>
+    <p>{{ subtitulo }}</p>
+    <div class="linea"></div>
+  </header>
+
+  <section class="timeline">
+    {% for paso in pasos %}
+    <article class="paso">
+      <div class="numero">{{ paso.numero }}</div>
+      <div class="tarjeta">
+        <h3>{{ paso.titulo_paso }}</h3>
+        <p>{{ paso.descripcion }}</p>
+      </div>
+    </article>
+    {% endfor %}
+  </section>
+
+  <footer class="pie">
+    Universidad de Cartagena · Programa de Administración de Empresas
+  </footer>
+</body>
+</html>

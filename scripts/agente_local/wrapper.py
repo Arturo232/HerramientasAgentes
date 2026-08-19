@@ -149,6 +149,7 @@ def _perfil_script(script):
     return {
         "script": script,
         "ram": meta.get("ram", "bajo"),
+        "estado_base": meta.get("estado_base", "DISABLED"),
         "dependencias": meta.get("libs", []),
         "plantillas": meta.get("plantillas", []),
         "estado": "ACTIVABLE" if estado["ok"] else "FALTA_DEPENDENCIA",

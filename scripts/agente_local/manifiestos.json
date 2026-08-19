@@ -10,6 +10,12 @@
       "plantillas": [],
       "ram": "bajo"
     },
+    "scripts/datos/traductor_pdf.py": {
+      "libs": ["pdf_inspector"],
+      "plantillas": [],
+      "ram": "medio",
+      "estado_base": "DISABLED"
+    },
     "scripts/sistema/mantenimiento_pc.py": {
       "libs": [],
       "plantillas": [],

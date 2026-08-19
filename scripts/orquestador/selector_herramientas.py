@@ -8,6 +8,7 @@ el script a ejecutar (redes, datos o sistema) y los argumentos CLI sugeridos.
 import argparse
 import json
 import os
+import re
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -60,6 +61,23 @@ HERRAMIENTAS = {
         },
         "gatillos_reconectar": [],
     },
+    "traducir": {
+        "script": "scripts/datos/traductor_pdf.py",
+        "descripcion": "Traduccion de documentos PDF: extrae con pdf-inspector y prepara la traduccion",
+        "palabras_clave": [
+            "traducir", "traduce", "traductor", "idioma", "traduccion",
+            "traduce este documento", "traducir pdf", "traductor pdf",
+            "pdf a", "al espanol", "al ingles", "al frances", "al portugues",
+        ],
+        "argumentos": [],
+        "gatillos": {},
+        "gatillos_reconectar": [],
+        "idiomas": [
+            "espanol", "español", "ingles", "inglés", "frances", "francés",
+            "portugues", "portugués", "aleman", "alemán", "italiano", "chino",
+            "japones", "japonés", "ruso",
+        ],
+    },
 }
 
 
@@ -76,6 +94,21 @@ def _emparejar(intencion):
     return puntajes
 
 
+def _extraer_pdf(intencion):
+    """Devuelve la ruta .pdf encontrada en la intencion, o None."""
+    coincidencias = re.findall(r"[\w./~-]+\.pdf", intencion, flags=re.IGNORECASE)
+    return coincidencias[0] if coincidencias else None
+
+
+def _extraer_idioma(intencion, herramienta):
+    """Devuelve el idioma de destino detectado en la intencion, o default."""
+    texto = intencion.lower()
+    for idioma in herramienta.get("idiomas", []):
+        if idioma in texto:
+            return idioma.replace("é", "e").replace("ñ", "n")
+    return "espanol"
+
+
 def _argumentos_sugeridos(nombre, intencion):
     """Devuelve los argumentos CLI según matices de la intención."""
     herramienta = HERRAMIENTAS[nombre]
@@ -90,6 +123,12 @@ def _argumentos_sugeridos(nombre, intencion):
         if any(p in texto for p in ("limpiar", "limpieza", "cache", "huerfano", "huerfanos", "mantenimiento")):
             return ["--limpiar"]
         return ["--info"]
+    if nombre == "traducir":
+        ruta = _extraer_pdf(intencion)
+        if not ruta:
+            return None
+        idioma = _extraer_idioma(intencion, herramienta)
+        return ["--input", ruta, "--idioma", idioma]
     return herramienta["argumentos"]
 
 
@@ -116,6 +155,16 @@ def seleccionar(intencion):
     nombre = max(puntajes, key=puntajes.get)
     herramienta = HERRAMIENTAS[nombre]
     argumentos = _argumentos_sugeridos(nombre, intencion)
+    if argumentos is None:
+        return {
+            "exito": False,
+            "herramienta": nombre,
+            "script": herramienta["script"],
+            "mensaje": (
+                "No se indico la ruta del PDF. Indica el archivo, por ejemplo: "
+                'ha ejecutar "traduce el pdf ruta/al/archivo.pdf a ingles".'
+            ),
+        }
     script_relativo = herramienta["script"]
     script_absoluto = os.path.normpath(os.path.join(BASE_DIR, "..", script_relativo))
     comando = ["python3", script_relativo, *argumentos]

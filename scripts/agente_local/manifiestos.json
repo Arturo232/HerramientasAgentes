@@ -1,0 +1,59 @@
+{
+  "scripts": {
+    "scripts/redes/diagnosticar_red.py": {
+      "libs": [],
+      "plantillas": [],
+      "ram": "bajo"
+    },
+    "scripts/datos/generar_excel.py": {
+      "libs": ["openpyxl"],
+      "plantillas": [],
+      "ram": "bajo"
+    },
+    "scripts/sistema/mantenimiento_pc.py": {
+      "libs": [],
+      "plantillas": [],
+      "ram": "bajo"
+    },
+    "modulos/literatura/scripts/generar_documento_apa.py": {
+      "libs": ["mistune", "docx"],
+      "plantillas": ["plantillas/apa_base.docx"],
+      "ram": "medio"
+    },
+    "modulos/artes_diseno/scripts/motor_pptx_visual.py": {
+      "libs": ["pptx"],
+      "plantillas": ["modulos/artes_diseno/plantillas/pptx/plantilla_finanzas_doodle.pptx"],
+      "ram": "medio"
+    },
+    "modulos/artes_diseno/scripts/renderizador_playwright.py": {
+      "libs": ["playwright"],
+      "plantillas": ["modulos/artes_diseno/plantillas/html/base_infografia.html"],
+      "ram": "alto"
+    }
+  },
+  "modulos": {
+    "literatura": {
+      "skill": "ensayo-apa",
+      "scripts": ["modulos/literatura/scripts/generar_documento_apa.py"]
+    },
+    "artes_diseno": {
+      "skill": "director-creativo",
+      "scripts": [
+        "modulos/artes_diseno/scripts/motor_pptx_visual.py",
+        "modulos/artes_diseno/scripts/renderizador_playwright.py"
+      ]
+    },
+    "matematicas": {
+      "skill": "analista-logico",
+      "scripts": []
+    },
+    "biologia_y_ciencias": {
+      "skill": "investigador-cientifico",
+      "scripts": []
+    },
+    "programacion_y_tech": {
+      "skill": "ingeniero-software",
+      "scripts": []
+    }
+  }
+}

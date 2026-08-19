@@ -1,6 +1,15 @@
 ---
 name: ensayo-apa
 description: Skill global para redactar ensayos académicos con Normas APA 7 para la Universidad de Cartagena y compilarlos a DOCX/PDF. Use when the user asks for ensayos, informes, trabajos académicos, redacción académica, "borrador.md", APA 7, referencias bibliográficas, o compilar con generar_documento_apa.py.
+dependencias:
+  scripts:
+    - modulos/literatura/scripts/generar_documento_apa.py
+  libs:
+    - mistune
+    - docx
+  plantillas:
+    - plantillas/apa_base.docx
+  ram: medio
 ---
 
 # Skill: Redactor Académico APA 7 (Universidad de Cartagena)

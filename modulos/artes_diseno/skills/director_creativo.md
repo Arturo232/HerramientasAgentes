@@ -1,6 +1,17 @@
 ---
 name: director-creativo
 description: Skill del Director Creativo y Director de Arte Senior para infografías, pósters y presentaciones visuales con fotografía real, plantillas PPTX y renderizado HTML con Playwright (Tailwind, Chart.js, Mermaid, Lucide). Use when the user asks for infografías, pósters, diapositivas, diseño visual, jerarquía visual, fotografías, gráficos de datos, diagramas, "datos_diseno.json", "motor_pptx_visual.py" o "renderizador_playwright.py".
+dependencias:
+  scripts:
+    - modulos/artes_diseno/scripts/motor_pptx_visual.py
+    - modulos/artes_diseno/scripts/renderizador_playwright.py
+  libs:
+    - pptx
+    - playwright
+  plantillas:
+    - modulos/artes_diseno/plantillas/pptx/plantilla_finanzas_doodle.pptx
+    - modulos/artes_diseno/plantillas/html/base_infografia.html
+  ram: alto
 ---
 
 # Skill: Director Creativo (Director de Arte Senior)

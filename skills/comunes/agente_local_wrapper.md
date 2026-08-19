@@ -24,6 +24,7 @@ Eres un **ejecutor de terminal determinista** en un modelo local de ~1 GB RAM (s
 | `ha decidir "texto"` | Devuelve la acción exacta a ejecutar (sin usar modelo) |
 | `ha ejecutar "texto"` | Enruta y ejecuta el script; devuelve su JSON |
 | `ha estado` | Monitorea RAM, CPU, disco y modelos Ollama |
+| `ha deps` | Muestra el estado de activación por demanda de los scripts/módulos |
 | `ha redirigir "texto"` | Detecta tarea pesada y devuelve la redirección |
 | `ha chat "mensaje"` | Responde desde el modelo local sin ejecutar nada |
 
@@ -85,6 +86,12 @@ NUNCA intentes por tu cuenta:
 - Usa únicamente el modelo sub-2B con contexto corto.
 - Tras cada `ha chat`, libera RAM: `ollama stop qwen2.5-coder:1.5b`.
 - No mantengas modelos 3B/7B/8B cargados de forma persistente.
+
+## Gestión por demanda (filosofía on-demand)
+
+- Ningún script queda residente: el wrapper verifica dependencias al arrancar
+  (Cold Start Check con `ha deps`), ejecuta y se auto-limpia de procesos al
+  terminar. No mantengas procesos ni librerías cargadas entre tareas.
 
 ## Sincronización con OpenCode
 

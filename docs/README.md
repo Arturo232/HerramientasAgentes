@@ -28,7 +28,7 @@ HerramientasAgente/
 │   └── comunes/
 │       └── agente_local_wrapper.md   # Ejecutor local ultraligero sub-2B
 ├── scripts/
-│   ├── agente_local/                 # Wrapper CLI `ha` (config.json, wrapper.py, ha.sh)
+│   ├── agente_local/                 # Wrapper CLI `ha` (config.json, manifiestos.json, wrapper.py, ha.sh)
 │   ├── orquestador/selector_herramientas.py
 │   ├── redes/diagnosticar_red.py     # Diagnóstico y reconexión de red
 │   ├── datos/generar_excel.py        # Reportes Excel profesionales
@@ -212,6 +212,28 @@ enrutamiento determinista.
 (literatura, artes_diseno, matematicas, biologia_y_ciencias, programacion_y_tech)
 cuando la petición excede la capacidad del modelo local; el modelo local jamás
 intenta esas tareas.
+
+### Gestión de dependencias por demanda (filosofía on-demand)
+
+Ningún módulo o script permanece cargado de forma permanente. Cada herramienta
+actúa como un servicio efímero: permanece **INACTIVA** hasta que una tarea
+requiere su dependencia, momento en el que se **ACTIVA**, ejecuta y se
+**AUTO-LIMPIA**.
+
+- El manifiesto de dependencias vive en
+  `scripts/agente_local/manifiestos.json` (librerías, plantillas y nivel de RAM
+  por script y módulo). Las skills de módulo declaran además sus dependencias
+  en el frontmatter YAML (`dependencias:`).
+- `ha deps` muestra el estado de activación por demanda: qué script/módulo está
+  `ACTIVABLE`, `SIN_SCRIPTS` o `FALTA_DEPENDENCIA`.
+- `ha ejecutar` hace un **Cold Start Check** antes de lanzar el script (valida
+  que las librerías del `.venv` y las plantillas existan) y se auto-limpia de
+  procesos secundarios al terminar (p. ej. Playwright/Chromium headless).
+
+```bash
+ha deps                 # estado de activacion por demanda
+ha ejecutar "genera un documento apa"   # cold start + auto-limpieza
+```
 
 ## Skills globales de OpenCode
 

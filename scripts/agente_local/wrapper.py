@@ -24,6 +24,9 @@ from selector_herramientas import HERRAMIENTAS, seleccionar  # noqa: E402
 with open(os.path.join(HA_DIR, "config.json"), encoding="utf-8") as _archivo:
     CONFIG = json.load(_archivo)
 
+with open(os.path.join(HA_DIR, "manifiestos.json"), encoding="utf-8") as _archivo:
+    MANIFIESTOS = json.load(_archivo)
+
 MODELO_EJECUTOR = CONFIG["modelo_ejecutor"]
 MODELO_CHAT = CONFIG["modelo_chat"]
 TIEMPO_MAX = CONFIG["tiempo_max_s"]
@@ -90,6 +93,92 @@ def _ejecutar(comando, timeout=TIEMPO_MAX):
         return 1, "", str(error)
 
 
+def _probar_import(nombre_lib):
+    """Devuelve True si la libreria es importable en el intérprete del venv."""
+    codigo, _salida, _error = _ejecutar(
+        [_python(), "-c", f"import {nombre_lib}"], timeout=30
+    )
+    return codigo == 0
+
+
+def _verificar_dependencias(script):
+    """Cold Start Check: valida librerias y plantillas antes de ejecutar.
+
+    Devuelve {ok, faltantes_libs, faltantes_plantillas, ram, requerido}.
+    """
+    meta = MANIFIESTOS.get("scripts", {}).get(script)
+    if meta is None:
+        return {
+            "ok": True,
+            "faltantes_libs": [],
+            "faltantes_plantillas": [],
+            "ram": "bajo",
+            "requerido": False,
+            "mensaje": "Sin manifiesto: se ejecuta con las dependencias del sistema.",
+        }
+    faltantes_libs = [
+        lib for lib in meta.get("libs", []) if not _probar_import(lib)
+    ]
+    faltantes_plantillas = []
+    for plantilla in meta.get("plantillas", []):
+        ruta = os.path.normpath(os.path.join(BASE_DIR, plantilla))
+        if not os.path.exists(ruta):
+            faltantes_plantillas.append(plantilla)
+    ok = not faltantes_libs and not faltantes_plantillas
+    return {
+        "ok": ok,
+        "faltantes_libs": faltantes_libs,
+        "faltantes_plantillas": faltantes_plantillas,
+        "ram": meta.get("ram", "bajo"),
+        "requerido": True,
+        "mensaje": "Dependencias disponibles." if ok else "Dependencias faltantes.",
+    }
+
+
+def _liberar_recursos(ram):
+    """Auto-limpieza al finalizar: detiene procesos secundarios segun la RAM."""
+    if ram == "alto":
+        _ejecutar(["pkill", "-f", "playwright"], timeout=10)
+        _ejecutar(["pkill", "-f", "chromium.*--headless"], timeout=10)
+
+
+def _perfil_script(script):
+    """Perfil de activacion por demanda de un script."""
+    meta = MANIFIESTOS.get("scripts", {}).get(script, {})
+    estado = _verificar_dependencias(script)
+    return {
+        "script": script,
+        "ram": meta.get("ram", "bajo"),
+        "dependencias": meta.get("libs", []),
+        "plantillas": meta.get("plantillas", []),
+        "estado": "ACTIVABLE" if estado["ok"] else "FALTA_DEPENDENCIA",
+        "faltantes_libs": estado["faltantes_libs"],
+        "faltantes_plantillas": estado["faltantes_plantillas"],
+    }
+
+
+def deps():
+    """Reporta el estado de activacion por demanda de todos los scripts y modulos."""
+    scripts = [
+        _perfil_script(script) for script in MANIFIESTOS.get("scripts", {})
+    ]
+    modulos = []
+    for nombre, datos in MANIFIESTOS.get("modulos", {}).items():
+        modulos.append({
+            "modulo": nombre,
+            "skill": datos["skill"],
+            "scripts": datos["scripts"],
+            "estado": "ACTIVABLE" if datos["scripts"] else "SIN_SCRIPTS",
+        })
+    return {
+        "exito": True,
+        "filosofia": "on-demand: inactivo hasta que una tarea requiera su dependencia",
+        "scripts": scripts,
+        "modulos": modulos,
+        "mensaje": "Estado de activacion por demanda.",
+    }
+
+
 def listar():
     """Devuelve los comandos `ha` y las herramientas enrutables."""
     herramientas = [
@@ -109,6 +198,7 @@ def listar():
             {"comando": 'ha enrutar "texto"', "uso": "obtiene el comando CLI"},
             {"comando": 'ha ejecutar "texto"', "uso": "enruta y ejecuta"},
             {"comando": "ha estado", "uso": "monitorea recursos y Ollama"},
+            {"comando": "ha deps", "uso": "estado de activacion por demanda"},
             {"comando": 'ha redirigir "texto"', "uso": "detecta tarea pesada"},
             {"comando": 'ha chat "mensaje"', "uso": "responde desde el modelo local"},
         ],
@@ -187,7 +277,7 @@ def enrutar(texto):
 
 
 def ejecutar(texto):
-    """Enruta, ejecuta el script local y devuelve su salida JSON."""
+    """Enruta, verifica dependencias, ejecuta el script y se auto-limpia."""
     previo = redirigir(texto)
     if previo.get("redireccion"):
         return previo
@@ -195,11 +285,27 @@ def ejecutar(texto):
     if not enrutamiento.get("exito"):
         return enrutamiento
     script = os.path.join(BASE_DIR, enrutamiento["script"])
+    chequeo = _verificar_dependencias(enrutamiento["script"])
+    if not chequeo["ok"]:
+        return {
+            "exito": False,
+            "cold_start": False,
+            "herramienta": enrutamiento["herramienta"],
+            "script": enrutamiento["script"],
+            "faltantes_libs": chequeo["faltantes_libs"],
+            "faltantes_plantillas": chequeo["faltantes_plantillas"],
+            "mensaje": (
+                "Cold start fallido: faltan dependencias para activar este "
+                "script por demanda."
+            ),
+        }
     comando = [_python(), script, *enrutamiento["argumentos"]]
     codigo, salida, error = _ejecutar(comando, timeout=TIEMPO_MAX)
+    _liberar_recursos(chequeo["ram"])
     if codigo != 0:
         return {
             "exito": False,
+            "cold_start": True,
             "herramienta": enrutamiento["herramienta"],
             "script": enrutamiento["script"],
             "returncode": codigo,
@@ -210,6 +316,7 @@ def ejecutar(texto):
         datos = json.loads(salida)
     except (json.JSONDecodeError, ValueError):
         datos = {"salida_cruda": salida}
+    datos["cold_start"] = True
     datos["herramienta"] = enrutamiento["herramienta"]
     datos["script"] = enrutamiento["script"]
     datos["comando_ejecutado"] = " ".join(comando)
@@ -363,6 +470,8 @@ def main():
 
     sub.add_parser("estado", help="monitorea recursos y Ollama")
 
+    sub.add_parser("deps", help="estado de activacion por demanda")
+
     p_redirigir = sub.add_parser("redirigir", help="detecta tarea pesada")
     p_redirigir.add_argument("texto", help="peticion del usuario")
 
@@ -381,6 +490,8 @@ def main():
         resultado = ejecutar(args.texto)
     elif args.comando == "estado":
         resultado = estado()
+    elif args.comando == "deps":
+        resultado = deps()
     elif args.comando == "redirigir":
         resultado = redirigir(args.texto)
     elif args.comando == "chat":

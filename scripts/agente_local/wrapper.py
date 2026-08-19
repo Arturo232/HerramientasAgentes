@@ -170,11 +170,23 @@ def deps():
             "scripts": datos["scripts"],
             "estado": "ACTIVABLE" if datos["scripts"] else "SIN_SCRIPTS",
         })
+    skills_importadas = []
+    for nombre, datos in MANIFIESTOS.get("skills_importadas", {}).items():
+        skills_importadas.append({
+            "skill": nombre,
+            "dominio": datos["dominio"],
+            "ram": datos["ram"],
+            "estado": "DISABLED",
+            "scripts": datos.get("scripts", "SIN_SCRIPTS"),
+            "destino_cloud": datos["destino_cloud"],
+            "keywords": datos["keywords"],
+        })
     return {
         "exito": True,
         "filosofia": "on-demand: inactivo hasta que una tarea requiera su dependencia",
         "scripts": scripts,
         "modulos": modulos,
+        "skills_importadas": skills_importadas,
         "mensaje": "Estado de activacion por demanda.",
     }
 
@@ -219,6 +231,17 @@ def _clasificar_pesada(texto):
     return None, None, None
 
 
+def _clasificar_skill_importada(texto):
+    """Devuelve la skill importada (Cloud) que coincide con el trigger."""
+    minusculas = texto.lower()
+    skills = MANIFIESTOS.get("skills_importadas", {})
+    for nombre, datos in skills.items():
+        for palabra in datos.get("keywords", []):
+            if palabra in minusculas:
+                return nombre, datos
+    return None, None
+
+
 def redirigir(texto):
     """Detecta si la intención excede la capacidad del modelo local."""
     texto = texto.strip()
@@ -235,6 +258,23 @@ def redirigir(texto):
             "redireccion": False,
             "herramienta": enrutamiento["herramienta"],
             "mensaje": "Intencion operativa: ejecutable con el modelo local.",
+        }
+    nombre_skill, datos_skill = _clasificar_skill_importada(texto)
+    if nombre_skill:
+        return {
+            "exito": True,
+            "redireccion": True,
+            "modulo": datos_skill["destino_cloud"],
+            "skill": nombre_skill,
+            "tipo": "skill_importada",
+            "ram": datos_skill["ram"],
+            "motivo": f"skill importada: {nombre_skill}",
+            "mensaje": (
+                f"Skill importada detectada ({nombre_skill}). El modelo local "
+                f"solo ejecuta terminal; delega al modelo Cloud via el "
+                f"Orquestador Maestro (skill {nombre_skill}, modulo "
+                f"{datos_skill['destino_cloud']})."
+            ),
         }
     modulo, skill, motivo = _clasificar_pesada(texto)
     if modulo:

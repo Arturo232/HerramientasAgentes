@@ -55,5 +55,79 @@
       "skill": "ingeniero-software",
       "scripts": []
     }
+  },
+  "skills_importadas": {
+    "avoid-ai-writing": {
+      "dominio": "literatura",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "literatura",
+      "keywords": ["humaniz", "quitar el tono ia", "quitar tono ia", "reescribir", "detectar escritura ai", "ai writing"]
+    },
+    "professional-proofreader": {
+      "dominio": "literatura",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "literatura",
+      "keywords": ["ortografia", "gramatica", "corrig", "proofread", "redaccion", "revisar el texto", "mejorar el texto"]
+    },
+    "beautiful-prose": {
+      "dominio": "literatura",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "literatura",
+      "keywords": ["escribir ensayo", "prosa academica", "estilo de escritura", "redaccion formal"]
+    },
+    "deep-research": {
+      "dominio": "biologia_y_ciencias",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "biologia_y_ciencias",
+      "keywords": ["investigar", "research", "informe de literatura", "estado del arte", "sintetizar fuentes", "reporte cientifico"]
+    },
+    "sympy": {
+      "dominio": "matematicas",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "matematicas",
+      "keywords": ["ecuaciones", "algebra simbolica", "derivadas", "integrales", "despejar", "symbolic math"]
+    },
+    "statsmodels": {
+      "dominio": "matematicas",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "matematicas",
+      "keywords": ["estadistica", "regresion", "prueba de hipotesis", "modelo estadistico", "p-value", "inferencia"]
+    },
+    "python-pptx-generator": {
+      "dominio": "artes_diseno",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "artes_diseno",
+      "keywords": ["presentacion", "diapositivas", "powerpoint", "slides", "deck de clase", "ppt"]
+    },
+    "article-illustrations": {
+      "dominio": "artes_diseno",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "artes_diseno",
+      "keywords": ["ilustracion", "infografia", "visual", "metafora visual", "imagen para articulo"]
+    },
+    "uncle-bob-craft": {
+      "dominio": "programacion_y_tech",
+      "ram": "bajo",
+      "estado_base": "DISABLED",
+      "scripts": "SIN_SCRIPTS",
+      "destino_cloud": "programacion_y_tech",
+      "keywords": ["revisar codigo", "code review", "refactor", "mejorar codigo", "clean code", "revision de pr"]
+    }
   }
 }

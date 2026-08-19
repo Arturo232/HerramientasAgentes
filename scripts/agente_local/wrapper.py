@@ -105,6 +105,7 @@ def listar():
         "exito": True,
         "comandos_ha": [
             {"comando": "ha listar", "uso": "lista herramientas"},
+            {"comando": 'ha decidir "texto"', "uso": "devuelve la accion exacta"},
             {"comando": 'ha enrutar "texto"', "uso": "obtiene el comando CLI"},
             {"comando": 'ha ejecutar "texto"', "uso": "enruta y ejecuta"},
             {"comando": "ha estado", "uso": "monitorea recursos y Ollama"},
@@ -248,16 +249,79 @@ def estado():
     return datos
 
 
+def _comando_bash(partes):
+    """Construye el comando bash absoluto para copiar en la terminal."""
+    ha = os.path.join(HA_DIR, "ha.sh")
+    texto = " ".join(partes)
+    if texto:
+        return f'bash "{ha}" {texto}'
+    return f'bash "{ha}"'
+
+
+def decidir(texto):
+    """Devuelve la acción exacta a ejecutar, sin usar ningún modelo.
+
+    Lógica 100% determinista: si la intención es operativa, ordena ejecutar
+    el script; si es pesada, ordena reportar la redirección; si no encaja,
+    ordena consultar `ha chat`.
+    """
+    texto = texto.strip()
+    if not texto:
+        return {
+            "exito": False,
+            "accion": "chat",
+            "comando": _comando_bash(["chat", '"dime que quieres hacer"']),
+            "mensaje": "La intencion esta vacia; consultar al usuario.",
+        }
+    previo = redirigir(texto)
+    if previo.get("redireccion"):
+        return {
+            "exito": True,
+            "accion": "reportar_redireccion",
+            "modulo": previo["modulo"],
+            "skill": previo["skill"],
+            "comando": None,
+            "respuesta_al_usuario": (
+                f"Esa es una tarea pesada para el modelo local. La delego al "
+                f"modulo {previo['modulo']} (skill {previo['skill']}) para que "
+                f"la resuelva el modelo Cloud via el Orquestador Maestro."
+            ),
+            "mensaje": previo["mensaje"],
+        }
+    if previo.get("exito"):
+        return {
+            "exito": True,
+            "accion": "terminal",
+            "herramienta": previo["herramienta"],
+            "comando": _comando_bash(["ejecutar", f'"{texto}"']),
+            "respuesta_al_usuario": None,
+            "mensaje": (
+                f"Ejecutar en la terminal el comando devuelto y responder al "
+                f"usuario con una frase resumiendo su JSON."
+            ),
+        }
+    return {
+        "exito": True,
+        "accion": "chat",
+        "comando": _comando_bash(["chat", f'"{texto}"']),
+        "mensaje": (
+            "Intencion no operativa ni pesada; responder con `ha chat`."
+        ),
+    }
+
+
 def chat(mensaje):
     """Responde desde el modelo local ultraligero sin ejecutar nada."""
     if not mensaje.strip():
         return {"exito": False, "respuesta": "El mensaje esta vacio."}
     consigna = (
-        "Eres un asistente de terminal ultraligero en Arch Linux. Responde en "
-        "español en maximo 3 lineas. Si la peticion es una tarea pesada "
-        "(ensayo, informe, diseno visual, HTML/CSS, codigo complejo, "
-        "matematicas o ciencias), responde exactamente: TAREA PESADA: delega "
-        "al Orquestador Maestro en modo Cloud. "
+        "Eres un asistente de terminal ultraligero en Arch Linux. "
+        "IMPORTANTE: responde SOLO texto plano en español, maximo 3 lineas. "
+        "NUNCA emitas tool calls, llamadas a funciones ni JSON. "
+        "Si la peticion es una tarea pesada (ensayo, informe, diseno visual, "
+        "HTML/CSS, codigo complejo, matematicas o ciencias), responde "
+        "exactamente: TAREA PESADA: delega al Orquestador Maestro en modo "
+        "Cloud. "
     )
     prompt = f"{consigna}\n\nUsuario: {mensaje}"
     codigo, salida, error = _ejecutar(
@@ -288,6 +352,9 @@ def main():
 
     sub.add_parser("listar", help="lista los comandos y herramientas")
 
+    p_decidir = sub.add_parser("decidir", help="devuelve la accion exacta")
+    p_decidir.add_argument("texto", help="peticion del usuario")
+
     p_enrutar = sub.add_parser("enrutar", help="devuelve el comando CLI")
     p_enrutar.add_argument("texto", help="intencion del usuario")
 
@@ -306,6 +373,8 @@ def main():
 
     if args.comando == "listar":
         resultado = listar()
+    elif args.comando == "decidir":
+        resultado = decidir(args.texto)
     elif args.comando == "enrutar":
         resultado = enrutar(args.texto)
     elif args.comando == "ejecutar":

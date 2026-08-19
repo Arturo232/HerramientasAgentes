@@ -1,0 +1,7 @@
+{
+  "modelo_ejecutor": "qwen2.5-coder:1.5b",
+  "modelo_chat": "llama3.2:1b",
+  "contexto_max_tokens": 8192,
+  "tiempo_max_s": 90,
+  "repo": "~/Documentos/HerramientasAgente"
+}

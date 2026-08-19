@@ -24,7 +24,15 @@ HerramientasAgente/
 ├── docs/
 │   └── README.md                     # Esta guía
 ├── skills/
-│   └── orquestador_maestro.md        # Decano: enrutador central del sistema
+│   ├── orquestador_maestro.md        # Decano: enrutador central del sistema
+│   └── comunes/
+│       └── agente_local_wrapper.md   # Ejecutor local ultraligero sub-2B
+├── scripts/
+│   ├── agente_local/                 # Wrapper CLI `ha` (config.json, wrapper.py, ha.sh)
+│   ├── orquestador/selector_herramientas.py
+│   ├── redes/diagnosticar_red.py     # Diagnóstico y reconexión de red
+│   ├── datos/generar_excel.py        # Reportes Excel profesionales
+│   └── sistema/mantenimiento_pc.py   # Monitoreo y limpieza del sistema
 ├── modulos/
 │   ├── literatura/
 │   │   ├── skills/ensayo_apa.md      # Redactor Académico APA 7
@@ -69,13 +77,14 @@ python3 -m venv .venv
 Para activar las skills globales de OpenCode (ver sección final):
 
 ```bash
-mkdir -p ~/.config/opencode/skills/{ensayo-apa,director-creativo,analista-logico,investigador-cientifico,ingeniero-software,orquestador-maestro}
+mkdir -p ~/.config/opencode/skills/{ensayo-apa,director-creativo,analista-logico,investigador-cientifico,ingeniero-software,orquestador-maestro,agente-local}
 cp modulos/literatura/skills/ensayo_apa.md ~/.config/opencode/skills/ensayo-apa/SKILL.md
 cp modulos/artes_diseno/skills/director_creativo.md ~/.config/opencode/skills/director-creativo/SKILL.md
 cp modulos/matematicas/skills/analista_logico.md ~/.config/opencode/skills/analista-logico/SKILL.md
 cp modulos/biologia_y_ciencias/skills/investigador_cientifico.md ~/.config/opencode/skills/investigador-cientifico/SKILL.md
 cp modulos/programacion_y_tech/skills/ingeniero_software.md ~/.config/opencode/skills/ingeniero-software/SKILL.md
 cp skills/orquestador_maestro.md ~/.config/opencode/skills/orquestador-maestro/SKILL.md
+cp skills/comunes/agente_local_wrapper.md ~/.config/opencode/skills/agente-local/SKILL.md
 ```
 
 ## Módulo de Literatura: compilador APA 7
@@ -166,12 +175,51 @@ Renderiza un HTML local a PDF vectorial A4, esperando la carga completa de los C
 
 La plantilla de referencia `modulos/artes_diseno/plantillas/html/base_infografia.html` muestra el uso de los cuatro frameworks. El renderizador usa Chromium del sistema (fallback al de Playwright), espera `networkidle` más 1500 ms adicionales y exporta con `print_background=True`. Requiere conexión a internet para los CDN.
 
+## Agente Local Ultraligero (sub-2B, ~1 GB RAM)
+
+Para no bloquear la CPU por inferencia, un modelo local de Ollama sub-2B actúa
+solo como **ejecutor de terminal determinista** (enrutar → ejecutar → reportar),
+delegando cualquier tarea pesada al modelo Cloud vía el Orquestador Maestro.
+
+### Instalar los modelos sub-2B (una sola vez)
+
+```bash
+ollama pull qwen2.5-coder:1.5b   # ~1.1 GB: ejecutor/enrutador
+ollama pull llama3.2:1b          # ~1.3 GB: chat/fallback
+```
+
+### Wrapper CLI `ha`
+
+El modelo local solo memoriza 6 comandos cortos con salida JSON
+(`scripts/agente_local/ha.sh`):
+
+```bash
+ha listar
+ha enrutar "tengo problemas de internet"
+ha ejecutar "revisa los recursos de la pc"
+ha estado
+ha redirigir "hazme un ensayo de 10 paginas"   # → delega al Cloud
+ha chat "hola"
+```
+
+El wrapper resuelve el intérprete del repositorio (`.venv/bin/python` si
+existe) y reutiliza `scripts/orquestador/selector_herramientas.py` para el
+enrutamiento determinista.
+
+### Fallback / redirección
+
+`ha redirigir "texto"` devuelve `"redireccion": true` con el módulo destino
+(literatura, artes_diseno, matematicas, biologia_y_ciencias, programacion_y_tech)
+cuando la petición excede la capacidad del modelo local; el modelo local jamás
+intenta esas tareas.
+
 ## Skills globales de OpenCode
 
 Todas las skills están registradas globalmente para estar disponibles en cualquier terminal:
 
 ```
 ~/.config/opencode/skills/orquestador-maestro/SKILL.md   # Decano (punto de entrada)
+~/.config/opencode/skills/agente-local/SKILL.md          # Ejecutor local ultraligero
 ~/.config/opencode/skills/ensayo-apa/SKILL.md
 ~/.config/opencode/skills/director-creativo/SKILL.md
 ~/.config/opencode/skills/analista-logico/SKILL.md

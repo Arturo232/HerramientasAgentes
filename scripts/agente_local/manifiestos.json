@@ -16,6 +16,12 @@
       "ram": "medio",
       "estado_base": "DISABLED"
     },
+    "scripts/datos/construir_libro_pdf.py": {
+      "libs": ["pdf_inspector", "fitz", "PIL"],
+      "plantillas": [],
+      "ram": "alto",
+      "estado_base": "DISABLED"
+    },
     "scripts/sistema/mantenimiento_pc.py": {
       "libs": [],
       "plantillas": [],

@@ -397,7 +397,9 @@ def _nombre_capitulo(indice):
 
 
 def _es_entrada_toc(linea):
-    """Detecta líneas del índice con puntos conductores (. . .)."""
+    """Detecta líneas del índice: puntos conductores espaciados o contiguos."""
+    if re.search(r"\.{4,}", linea):
+        return True
     return bool(re.search(r"\.\s+\.\s+\.", linea))
 
 
@@ -435,6 +437,24 @@ def _tiene_puntos_en_ventana(lineas, desde, ventana=4):
     return False
 
 
+def _normalizar_linea(linea):
+    """Normaliza una línea del markdown extraído para la detección de marcadores.
+
+    Quita los marcadores de negrita (**) y el prefijo de encabezado Markdown
+    cuando el resto del texto es un título en mayúsculas o una palabra clave.
+    """
+    s = linea.strip()
+    if "**" in s:
+        s = s.replace("**", "")
+    m = re.match(r"^#{1,6}\s+(.*)$", s)
+    if m:
+        resto = m.group(1).strip()
+        if (_es_titulo_caps(resto)
+                or re.match(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)\b", resto)):
+            s = resto
+    return s
+
+
 def dividir_en_capitulos(markdown):
     """Divide el markdown extraído del PDF en capítulos {indice: texto}.
 
@@ -447,6 +467,7 @@ def dividir_en_capitulos(markdown):
     entre el final del CONTENTS y el capítulo 1 se asigna al prefacio.
     """
     lineas = markdown.splitlines()
+    lineas = [_normalizar_linea(l) for l in lineas]
     n = len(lineas)
     marcadores = []
     vistos_numericos = set()
@@ -456,11 +477,10 @@ def dividir_en_capitulos(markdown):
 
     i = 0
     while i < n:
-        linea = lineas[i]
-        if _es_entrada_toc(linea):
+        limpia = lineas[i]
+        if not limpia or _es_entrada_toc(limpia):
             i += 1
             continue
-        limpia = linea.strip()
 
         if _es_digito_capitulo(limpia):
             num = int(limpia)
@@ -578,7 +598,7 @@ def _instruccion_traduccion(proyecto, idioma):
         with open(ruta, encoding="utf-8") as f:
             convenciones = f.read()
     else:
-        convenciones = _CONVICIONES_DEFAULT
+        convenciones = _CONVENCIONES_DEFAULT
         try:
             with open(ruta, "w", encoding="utf-8") as f:
                 f.write(convenciones)

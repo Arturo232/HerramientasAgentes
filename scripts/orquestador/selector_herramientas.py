@@ -61,13 +61,13 @@ HERRAMIENTAS = {
         },
         "gatillos_reconectar": [],
     },
-    "traducir": {
-        "script": "scripts/datos/traductor_pdf.py",
-        "descripcion": "Traduccion de documentos PDF: extrae con pdf-inspector y prepara la traduccion",
+    "libro": {
+        "script": "scripts/datos/construir_libro_pdf.py",
+        "descripcion": "Modulo unificado de libros PDF: extraccion con pdf-inspector, traduccion por lotes, portada e imagenes con PyMuPDF, conversion Markdown a LaTeX y compilacion con XeLaTeX",
         "palabras_clave": [
-            "traducir", "traduce", "traductor", "idioma", "traduccion",
-            "traduce este documento", "traducir pdf", "traductor pdf",
-            "pdf a", "al espanol", "al ingles", "al frances", "al portugues",
+            "traducir libro pdf", "compilar libro pdf", "construir libro",
+            "traducir y generar libro", "construir libro pdf", "compilar libro",
+            "generar libro", "maquetar libro", "libro pdf", "traducir libro",
         ],
         "argumentos": [],
         "gatillos": {},
@@ -123,12 +123,15 @@ def _argumentos_sugeridos(nombre, intencion):
         if any(p in texto for p in ("limpiar", "limpieza", "cache", "huerfano", "huerfanos", "mantenimiento")):
             return ["--limpiar"]
         return ["--info"]
-    if nombre == "traducir":
+    if nombre == "libro":
         ruta = _extraer_pdf(intencion)
         if not ruta:
             return None
-        idioma = _extraer_idioma(intencion, herramienta)
-        return ["--input", ruta, "--idioma", idioma]
+        argumentos = ["--pdf", ruta]
+        if any(p in texto for p in ("traducir", "traduce", "traduccion")):
+            idioma = _extraer_idioma(intencion, herramienta)
+            argumentos += ["--traducir", "--idioma", idioma]
+        return argumentos
     return herramienta["argumentos"]
 
 

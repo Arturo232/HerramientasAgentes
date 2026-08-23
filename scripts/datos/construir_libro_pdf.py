@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 """Construye un libro PDF traducido a partir de capítulos Markdown.
 
-Flujo completo automatizado:
+Flujo completo automatizado (módulo unificado de traducción y compilación):
   1. (Opcional) Extrae el Markdown de un PDF original con pdf_inspector.
-  2. Convierte cada capítulo Markdown a LaTeX escapando caracteres especiales
+  2. (--traducir) Divide el markdown en capítulos y bloques grandes
+     (~50k caracteres, cortes en límites seguros) y genera lotes.json
+     con la orden de traducción; el agente Cloud traduce cada lote y
+     el flujo continúa con --solo-compilar.
+  3. (--solo-compilar) Concatena los lotes traducidos en capítulos .md.
+  4. Convierte cada capítulo Markdown a LaTeX escapando caracteres especiales
      sin romper bloques \\texttt{...} ni entornos lstlisting. Usa
      \\section*{...} + \\addcontentsline para evitar numeración duplicada.
-  3. Ensambla un preámbulo determinista (libro.tex): formato 6x9 pulgadas,
+  5. Extrae portada e imágenes del PDF original (PyMuPDF + Pillow) y estampa
+     la banda de edición en español sobre la portada.
+  6. Ensambla un preámbulo determinista (libro.tex): formato 6x9 pulgadas,
      Liberation Serif, Noto Sans Mono, \\emergencystretch, \\tolerance y
      \\RaggedRight para evitar desbordamientos.
-  4. Compila con XeLaTeX (3 pasadas vía subprocess), mueve el PDF a la raíz
+  7. Compila con XeLaTeX (3 pasadas vía subprocess), mueve el PDF a la raíz
      del proyecto y limpia archivos temporales (.aux, .log, .toc, .out).
 
 Ejecución:
-  python3 construir_libro_pdf.py --proyecto /ruta/al/proyecto [--extraer] \
-      [--capitulos 01,02] [--salida How-Linux-Works_es.pdf] [--instalar-deps]
+  python3 construir_libro_pdf.py --proyecto /ruta/al/proyecto [--pdf original.pdf] \
+      [--traducir | --solo-compilar] [--capitulos 01,02] [--idioma espanol] \
+      [--salida How-Linux-Works_es.pdf] [--instalar-deps]
 """
 
 import argparse
@@ -353,6 +361,341 @@ def extraer_visuales(pdf_original, latex_dir, texto_estampado="Edición en Espa�
         metadatos = extraer_imagenes_internas(pdf_original, ruta_imagenes)
         resultado["imagenes"] = metadatos
     return resultado
+
+
+# ---------------------------------------------------------------------------
+# Traducción por lotes
+# ---------------------------------------------------------------------------
+_CONVENCIONES_DEFAULT = """# Convenciones de traducción
+
+## Reglas lingüísticas
+1. Traduce toda la prosa al español neutro, claro y fluido. Sin jerga de IA, sin anglicismos innecesarios.
+2. **NO traducir**: comandos, nombres de archivos, rutas, opciones de línea de comandos, salidas de terminal, nombres de programas/herramientas, variables de entorno, literales de código, nombres de paquetes ni nombres de tecnologías. Todo eso se conserva **exactamente igual**.
+3. Los encabezados de sección (números como "2.3 Basic Commands") se traducen SOLO la parte textual (ej. "2.3 Comandos básicos"), manteniendo la numeración.
+4. Mantén el tono didáctico y conversacional del autor.
+
+## Reglas de formato (Markdown)
+1. Estructura de encabezados:
+   - Capítulo: `# Capítulo N: <Título traducido>`
+   - Sección: `## N.M <Título traducido>`
+   - Subsección: `### N.M.K <Título traducido>`
+2. Todo bloque de terminal/código va en ``` con la salida tal cual (sin traducir).
+3. Las opciones/ejemplos en línea (rutas, flags) van en backticks.
+4. Notas ("NOTE:", "TIP:", "WARNING:") → **NOTA:**, **CONSEJO:**, **ADVERTENCIA:**
+5. Preserva viñetas, listas y tablas.
+6. Nombres propios de personas se mantienen.
+
+## Calidad
+- Traducción completa, sin omitir párrafos ni secciones.
+- No añadir comentarios ni resúmenes propios; solo traducir el contenido.
+"""
+
+
+def _nombre_capitulo(indice):
+    """Devuelve el nombre base del capítulo (sin .md) según ORDEN_CAPITULOS."""
+    return ORDEN_CAPITULOS[indice][0][:-3]
+
+
+def _es_entrada_toc(linea):
+    """Detecta líneas del índice con puntos conductores (. . .)."""
+    return bool(re.search(r"\.\s+\.\s+\.", linea))
+
+
+def _es_titulo_caps(linea):
+    """True si la línea parece un título en mayúsculas (>=4 letras, casi sin minúsculas)."""
+    letras = [c for c in linea if c.isalpha()]
+    if len(letras) < 4:
+        return False
+    minusculas = sum(1 for c in letras if c.islower())
+    return minusculas <= len(letras) * 0.1
+
+
+def _siguiente_no_vacia(lineas, desde):
+    """Devuelve (indice, texto) de la siguiente línea no vacía desde `desde`."""
+    j = desde
+    while j < len(lineas):
+        s = lineas[j].strip()
+        if s:
+            return j, s
+        j += 1
+    return None, ""
+
+
+def _tiene_puntos_en_ventana(lineas, desde, ventana=4):
+    """True si alguna de las siguientes `ventana` líneas no vacías tiene puntos."""
+    vistos = 0
+    j = desde
+    while j < len(lineas) and vistos < ventana:
+        s = lineas[j].strip()
+        if s:
+            if _es_entrada_toc(s):
+                return True
+            vistos += 1
+        j += 1
+    return False
+
+
+def dividir_en_capitulos(markdown):
+    """Divide el markdown extraído del PDF en capítulos {indice: texto}.
+
+    Detecta dos órdenes de marcador en el cuerpo del libro: número solo
+    (1-17) seguido del título en mayúsculas, o título en mayúsculas seguido
+    del número (la extracción a veces invierte el orden). También reconoce
+    las líneas PREFACE, ACKNOWLEDGMENTS, BIBLIOGRAPHY e INDEX. Las entradas
+    del CONTENTS se descartan porque llevan puntos conductores en las
+    líneas siguientes al título. Si no hay marcador de prefacio, el hueco
+    entre el final del CONTENTS y el capítulo 1 se asigna al prefacio.
+    """
+    lineas = markdown.splitlines()
+    n = len(lineas)
+    marcadores = []
+    vistos_numericos = set()
+
+    def _es_digito_capitulo(s):
+        return bool(re.fullmatch(r"\d{1,2}", s)) and 1 <= int(s) <= 17
+
+    i = 0
+    while i < n:
+        linea = lineas[i]
+        if _es_entrada_toc(linea):
+            i += 1
+            continue
+        limpia = linea.strip()
+
+        if _es_digito_capitulo(limpia):
+            num = int(limpia)
+            if num not in vistos_numericos:
+                j, titulo = _siguiente_no_vacia(lineas, i + 1)
+                if (titulo and j is not None and j <= i + 4
+                        and _es_titulo_caps(titulo)
+                        and not _es_entrada_toc(titulo)
+                        and not _tiene_puntos_en_ventana(lineas, j + 1)):
+                    marcadores.append((i, num))
+                    vistos_numericos.add(num)
+            i += 1
+            continue
+
+        m_pref = re.match(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)\b", limpia)
+        if (m_pref and _es_titulo_caps(limpia)
+                and not _tiene_puntos_en_ventana(lineas, i + 1)):
+            palabra = m_pref.group(1)
+            if palabra in ("PREFACE", "ACKNOWLEDGMENTS"):
+                indice = 0
+            elif palabra == "BIBLIOGRAPHY":
+                indice = 18
+            else:
+                indice = 19
+            marcadores.append((i, indice))
+            i += 1
+            continue
+
+        if _es_titulo_caps(limpia):
+            j, digito = _siguiente_no_vacia(lineas, i + 1)
+            if (digito and j is not None and j <= i + 4
+                    and _es_digito_capitulo(digito)
+                    and int(digito) not in vistos_numericos
+                    and not _tiene_puntos_en_ventana(lineas, j + 1)):
+                marcadores.append((i, int(digito)))
+                vistos_numericos.add(int(digito))
+            i += 1
+            continue
+
+        i += 1
+
+    marcadores.sort(key=lambda m: m[0])
+
+    primeros_numericos = [pos for pos, indice in marcadores if 1 <= indice <= 17]
+    if primeros_numericos:
+        p1 = primeros_numericos[0]
+        marcadores = [(pos, indice) for pos, indice in marcadores
+                      if indice not in (18, 19) or pos > p1]
+
+    if not any(indice == 0 for _, indice in marcadores):
+        primeros = [pos for pos, indice in marcadores if indice == 1]
+        if primeros:
+            p1 = primeros[0]
+            ultimo_puntos = -1
+            for j in range(p1):
+                if _es_entrada_toc(lineas[j]):
+                    ultimo_puntos = j
+            if ultimo_puntos >= 0:
+                marcadores.append((ultimo_puntos + 1, 0))
+                marcadores.sort(key=lambda m: m[0])
+
+    capitulos = {}
+    for k, (idx, indice) in enumerate(marcadores):
+        fin = marcadores[k + 1][0] if k + 1 < len(marcadores) else n
+        cuerpo = "\n".join(lineas[idx:fin]).strip()
+        if indice in capitulos:
+            capitulos[indice] += "\n" + cuerpo
+        else:
+            capitulos[indice] = cuerpo
+    return capitulos
+
+
+def dividir_en_bloques(texto, bloque_chars=50000):
+    """Divide el texto en bloques grandes cortando en líneas vacías.
+
+    Nunca corta dentro de un bloque de código (fences ``` balanceados) ni
+    a mitad de línea salvo que un solo párrafo exceda el presupuesto.
+    """
+    if len(texto) <= bloque_chars:
+        return [texto]
+    lineas = texto.splitlines(keepends=True)
+    total = len(lineas)
+    bloques = []
+    inicio = 0
+    while inicio < total:
+        tamano = 0
+        fences = 0
+        corte = total
+        ultimo_vacio = None
+        i = inicio
+        while i < total:
+            stripped = lineas[i].strip()
+            if fences % 2 == 0 and not stripped:
+                ultimo_vacio = i
+            if i > inicio and tamano + len(lineas[i]) > bloque_chars:
+                if fences % 2 == 0:
+                    if ultimo_vacio is not None and ultimo_vacio > inicio:
+                        corte = ultimo_vacio
+                    else:
+                        corte = i
+                    break
+            if stripped.startswith("```"):
+                fences += 1
+            tamano += len(lineas[i])
+            i += 1
+        bloques.append("".join(lineas[inicio:corte]))
+        inicio = corte
+    return [b for b in bloques if b.strip()]
+
+
+def _instruccion_traduccion(proyecto, idioma):
+    """Devuelve la orden de traducción; crea CONVENCIONES.md si no existe."""
+    ruta = os.path.join(proyecto, "CONVENCIONES.md")
+    if os.path.isfile(ruta):
+        with open(ruta, encoding="utf-8") as f:
+            convenciones = f.read()
+    else:
+        convenciones = _CONVICIONES_DEFAULT
+        try:
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(convenciones)
+        except OSError:
+            pass
+    return (
+        f"Traduce al {idioma} el contenido del bloque siguiendo estrictamente "
+        f"estas convenciones:\n\n{convenciones}\n\n"
+        "Entrega ÚNICAMENTE el bloque traducido en Markdown, sin comentarios "
+        "ni explicaciones. No omitas ningún párrafo."
+    )
+
+
+def preparar_lotes(pdf_original, proyecto, capitulos_filtro="", idioma="espanol",
+                   bloque_chars=50000):
+    """Divide el markdown extraído en capítulos y bloques, y genera lotes.json.
+
+    Conserva los lotes ya existentes (traducidos) y solo añade los faltantes.
+    Devuelve (manifiesto, ruta_lotes).
+    """
+    ruta_md = os.path.join(proyecto, EXTRACCION_DIR, "markdown_completo.md")
+    if not os.path.isfile(ruta_md):
+        if not _importar_pdf_inspector():
+            raise RuntimeError(
+                "pdf_inspector no disponible. Usa --instalar-deps."
+            )
+        extraer_markdown(pdf_original, ruta_md)
+    with open(ruta_md, encoding="utf-8") as f:
+        markdown = f.read()
+
+    capitulos = dividir_en_capitulos(markdown)
+    if not capitulos:
+        raise RuntimeError(
+            "No se detectaron capítulos en el markdown extraído."
+        )
+
+    deseados = None
+    if capitulos_filtro:
+        deseados = {c.strip() for c in capitulos_filtro.split(",") if c.strip()}
+
+    partes_dir = os.path.join(proyecto, CAPITULOS_DIR, "partes")
+    os.makedirs(partes_dir, exist_ok=True)
+
+    ruta_lotes = os.path.join(proyecto, "lotes.json")
+    previos = {}
+    if os.path.isfile(ruta_lotes):
+        with open(ruta_lotes, encoding="utf-8") as f:
+            previos = {l["id"]: l for l in json.load(f).get("lotes", [])}
+
+    lotes = []
+    for indice in sorted(capitulos):
+        nombre = _nombre_capitulo(indice)
+        if deseados and not any(d in nombre for d in deseados):
+            continue
+        bloques = dividir_en_bloques(capitulos[indice], bloque_chars)
+        for orden, bloque in enumerate(bloques):
+            bid = f"{nombre}_b{orden:02d}"
+            ruta = os.path.join(partes_dir, bid + ".md")
+            previo = previos.get(bid)
+            if previo and os.path.isfile(ruta):
+                lotes.append(previo)
+                continue
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(bloque)
+            lotes.append({
+                "id": bid,
+                "ruta": os.path.relpath(ruta, proyecto),
+                "capitulo": nombre,
+                "orden": orden,
+                "caracteres": len(bloque),
+                "estado": "pendiente",
+            })
+
+    manifiesto = {
+        "idioma": idioma,
+        "bloque_chars": bloque_chars,
+        "instruccion": _instruccion_traduccion(proyecto, idioma),
+        "lotes": lotes,
+    }
+    with open(ruta_lotes, "w", encoding="utf-8") as f:
+        json.dump(manifiesto, f, ensure_ascii=False, indent=2)
+    return manifiesto, ruta_lotes
+
+
+def concatenar_lotes(proyecto):
+    """Une los lotes traducidos en los capítulos .md finales.
+
+    Devuelve {"generados": [...], "pendientes": [...]} o None si no hay lotes.
+    """
+    ruta_lotes = os.path.join(proyecto, "lotes.json")
+    if not os.path.isfile(ruta_lotes):
+        return None
+    with open(ruta_lotes, encoding="utf-8") as f:
+        manifiesto = json.load(f)
+    por_capitulo = {}
+    pendientes = []
+    for lote in manifiesto.get("lotes", []):
+        ruta = os.path.join(proyecto, lote["ruta"])
+        if not os.path.isfile(ruta):
+            pendientes.append(lote["id"])
+            continue
+        por_capitulo.setdefault(lote["capitulo"], []).append((lote["orden"], ruta))
+    capitulos_dir = os.path.join(proyecto, CAPITULOS_DIR)
+    generados = []
+    for cap, partes in sorted(por_capitulo.items()):
+        partes.sort()
+        destino = os.path.join(capitulos_dir, cap + ".md")
+        nueva_parte = max(os.path.getmtime(ruta) for _, ruta in partes)
+        if os.path.isfile(destino) and os.path.getmtime(destino) > nueva_parte:
+            continue
+        contenido = "\n\n".join(
+            open(ruta, encoding="utf-8").read().strip() for _, ruta in partes
+        )
+        with open(destino, "w", encoding="utf-8") as f:
+            f.write(contenido + "\n")
+        generados.append(os.path.relpath(destino, proyecto))
+    return {"generados": generados, "pendientes": pendientes}
 
 
 # ---------------------------------------------------------------------------
@@ -930,6 +1273,14 @@ def main():
                         help="no extraer las imágenes internas del PDF original")
     parser.add_argument("--texto-estampado", default="",
                         help="texto de la banda de la portada (def: 'Edición en Español')")
+    parser.add_argument("--traducir", action="store_true",
+                        help="generar lotes de traducción desde el PDF original y salir")
+    parser.add_argument("--solo-compilar", action="store_true",
+                        help="concatenar lotes traducidos y compilar sin regenerar lotes")
+    parser.add_argument("--idioma", default="espanol",
+                        help="idioma destino de la traducción (def: espanol)")
+    parser.add_argument("--bloque-chars", type=int, default=50000,
+                        help="tamaño objetivo de cada lote en caracteres (def: 50000)")
     parser.add_argument("--capitulos", default="",
                         help="lista de capítulos a procesar (p.ej. '01,02'); vacío = todos")
     parser.add_argument("--salida", default=SALIDA_DEFAULT,
@@ -975,7 +1326,7 @@ def main():
                              ensure_ascii=False, indent=2))
             return 1
 
-    # Extracción opcional
+    # Extracción opcional de markdown (pdf_inspector)
     if args.extraer:
         if not _importar_pdf_inspector():
             if args.instalar_deps and _instalar_pdf_inspector():
@@ -986,7 +1337,6 @@ def main():
                      "mensaje": "pdf_inspector no disponible. Usa --instalar-deps."},
                     ensure_ascii=False, indent=2))
                 return 1
-        pdf_original = encontrar_pdf_original(proyecto)
         if not pdf_original:
             print(json.dumps({"exito": False, "mensaje": "No se encontró PDF original."},
                              ensure_ascii=False, indent=2))
@@ -994,6 +1344,60 @@ def main():
         destino = os.path.join(proyecto, EXTRACCION_DIR, "markdown_completo.md")
         paginas = extraer_markdown(pdf_original, destino)
         print(f"[extracción] {paginas} páginas -> {destino}")
+
+    # Traducción por lotes: genera lotes.json y sale sin compilar
+    if args.traducir:
+        if not pdf_original:
+            print(json.dumps({"exito": False,
+                              "mensaje": ("--traducir requiere el PDF original "
+                                          "(--pdf o presente en el proyecto).")},
+                             ensure_ascii=False, indent=2))
+            return 1
+        if not _importar_pdf_inspector():
+            if not (args.instalar_deps and _instalar_pdf_inspector()):
+                print(json.dumps(
+                    {"exito": False,
+                     "mensaje": "pdf_inspector no disponible. Usa --instalar-deps."},
+                    ensure_ascii=False, indent=2))
+                return 1
+        try:
+            manifiesto, ruta_lotes = preparar_lotes(
+                pdf_original, proyecto, args.capitulos, args.idioma,
+                args.bloque_chars)
+        except RuntimeError as exc:
+            print(json.dumps({"exito": False, "mensaje": str(exc)},
+                             ensure_ascii=False, indent=2))
+            return 1
+        pendientes = [l["id"] for l in manifiesto["lotes"]
+                      if l["estado"] == "pendiente"]
+        print(json.dumps({
+            "exito": True,
+            "modo": "traducir_lotes",
+            "lotes_json": ruta_lotes,
+            "total_lotes": len(manifiesto["lotes"]),
+            "lotes_pendientes": pendientes,
+            "instruccion": manifiesto["instruccion"],
+            "mensaje": ("Lotes generados. El agente Cloud traduce cada bloque "
+                        "pendiente y reejecuta con --solo-compilar."),
+        }, ensure_ascii=False, indent=2))
+        return 0
+
+    # Concatenación de lotes traducidos
+    resultado_lotes = None
+    if args.solo_compilar or os.path.isfile(os.path.join(proyecto, "lotes.json")):
+        resultado_lotes = concatenar_lotes(proyecto)
+    if resultado_lotes:
+        if resultado_lotes["pendientes"]:
+            if args.solo_compilar:
+                print(json.dumps({"exito": False,
+                                  "mensaje": "Hay lotes sin traducir.",
+                                  "pendientes": resultado_lotes["pendientes"]},
+                                 ensure_ascii=False, indent=2))
+                return 1
+            print(f"[lotes] AVISO: {len(resultado_lotes['pendientes'])} lotes "
+                  f"sin traducir; se conservan los capítulos existentes.")
+        elif resultado_lotes["generados"]:
+            print(f"[lotes] capítulos generados: {resultado_lotes['generados']}")
 
     # Selección de capítulos
     if args.capitulos:
@@ -1004,11 +1408,22 @@ def main():
         parejas = list(ORDEN_CAPITULOS)
 
     capitulos_dir = os.path.join(proyecto, CAPITULOS_DIR)
-    latex_dir = os.path.join(proyecto, LATEX_DIR)
-    os.makedirs(latex_dir, exist_ok=True)
 
     faltantes = [md for md, _ in parejas
                  if not os.path.isfile(os.path.join(capitulos_dir, md))]
+    if faltantes:
+        omitibles = [md for md in faltantes
+                     if not (resultado_lotes
+                             and any(l["capitulo"] == md[:-3]
+                                     for l in json.load(open(
+                                         os.path.join(proyecto, "lotes.json"),
+                                         encoding="utf-8"))["lotes"]))]
+        if omitibles:
+            print(f"[aviso] capítulos sin contenido detectado (se omiten): "
+                  f"{omitibles}")
+            parejas = [(md, tex) for md, tex in parejas if md not in omitibles]
+            faltantes = [md for md, _ in parejas
+                         if not os.path.isfile(os.path.join(capitulos_dir, md))]
     if faltantes:
         print(json.dumps({"exito": False, "mensaje": "Capítulos faltantes",
                           "faltantes": faltantes}, ensure_ascii=False, indent=2))

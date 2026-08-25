@@ -67,29 +67,52 @@ EXTRACCION_DIR = os.path.join("capitulos", "extraidos")
 LATEX_DIR = "latex"
 SALIDA_DEFAULT = "How-Linux-Works_es.pdf"
 
-# Mapeo de archivos .md -> nombre de archivo .tex (orden del libro)
-ORDEN_CAPITULOS = [
-    ("00_prefacio.md", "cap_prefacio.tex"),
-    ("01.md", "cap01.tex"),
-    ("02.md", "cap02.tex"),
-    ("03.md", "cap03.tex"),
-    ("04.md", "cap04.tex"),
-    ("05.md", "cap05.tex"),
-    ("06.md", "cap06.tex"),
-    ("07.md", "cap07.tex"),
-    ("08.md", "cap08.tex"),
-    ("09.md", "cap09.tex"),
-    ("10.md", "cap10.tex"),
-    ("11.md", "cap11.tex"),
-    ("12.md", "cap12.tex"),
-    ("13.md", "cap13.tex"),
-    ("14.md", "cap14.tex"),
-    ("15.md", "cap15.tex"),
-    ("16.md", "cap16.tex"),
-    ("17.md", "cap17.tex"),
-    ("18_bibliografia.md", "cap_biblio.tex"),
-    ("19_indice.md", "cap_indice.tex"),
-]
+# Índices especiales de capítulos no numerados
+INDICE_PREFACIO = 0
+INDICE_BIBLIOGRAFIA = 90
+INDICE_INDICE = 91
+
+
+def _nombre_base_capitulo(indice):
+    """Devuelve el nombre base del capítulo (sin extensión) para un índice.
+
+    0 = prefacio, 90 = bibliografía, 91 = índice, resto = capítulo numerado.
+    """
+    if indice == INDICE_PREFACIO:
+        return "00_prefacio"
+    if indice == INDICE_BIBLIOGRAFIA:
+        return "90_bibliografia"
+    if indice == INDICE_INDICE:
+        return "91_indice"
+    return f"{indice:02d}"
+
+
+def _tex_de_capitulo(nombre_base):
+    """Devuelve el nombre de archivo .tex para un capítulo."""
+    if nombre_base == "00_prefacio":
+        return "cap_prefacio.tex"
+    if nombre_base in ("90_bibliografia", "18_bibliografia"):
+        return "cap_biblio.tex"
+    if nombre_base in ("91_indice", "19_indice"):
+        return "cap_indice.tex"
+    return f"cap{nombre_base}.tex"
+
+
+def _indice_de_nombre_base(nombre_base):
+    """Devuelve el índice del libro a partir del nombre base del archivo .md.
+
+    Acepta los nombres actuales (90_bibliografia, 91_indice) y los heredados
+    de la versión anterior (18_bibliografia, 19_indice).
+    """
+    if nombre_base == "00_prefacio":
+        return INDICE_PREFACIO
+    if nombre_base in ("90_bibliografia", "18_bibliografia"):
+        return INDICE_BIBLIOGRAFIA
+    if nombre_base in ("91_indice", "19_indice"):
+        return INDICE_INDICE
+    if nombre_base.isdigit():
+        return int(nombre_base)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -244,24 +267,24 @@ def estampar_portada(original_png, destino_png, texto="Edición en Español"):
 
 
 def _indice_capitulo_libro(titulo):
-    """Mapa un título del TOC del PDF original a un índice de ORDEN_CAPITULOS.
+    """Mapa un título del TOC del PDF original a un índice del libro.
 
     Reconoce "Chapter N", "Preface", "Bibliography" e "Index" (inglés).
     Devuelve None si el título no corresponde a un capítulo del libro.
     """
     t = (titulo or "").strip().lower()
-    m = re.search(r"\bchapter\s+(\d+)\b", t)
+    m = re.search(r"\bchapter\s+(\d{1,2})\b", t)
     if m:
         n = int(m.group(1))
-        if 1 <= n <= 17:
+        if 1 <= n <= 99:
             return n
         return None
     if t.startswith("preface") or "acknowledgment" in t:
-        return 0
+        return INDICE_PREFACIO
     if t.startswith("bibliograph"):
-        return 18
+        return INDICE_BIBLIOGRAFIA
     if t.startswith("index"):
-        return 19
+        return INDICE_INDICE
     return None
 
 
@@ -277,7 +300,7 @@ def _construir_mapa_capitulos(toc):
 
 
 def _indice_capitulo_de_pagina(mapa, num_pagina):
-    """Devuelve el índice de ORDEN_CAPITULOS que contiene la página, o None."""
+    """Devuelve el índice del libro que contiene la página, o None."""
     indice = None
     for pagina_inicio, idx in mapa:
         if pagina_inicio <= num_pagina:
@@ -392,8 +415,8 @@ _CONVENCIONES_DEFAULT = """# Convenciones de traducción
 
 
 def _nombre_capitulo(indice):
-    """Devuelve el nombre base del capítulo (sin .md) según ORDEN_CAPITULOS."""
-    return ORDEN_CAPITULOS[indice][0][:-3]
+    """Devuelve el nombre base del capítulo (sin .md) para un índice."""
+    return _nombre_base_capitulo(indice)
 
 
 def _es_entrada_toc(linea):
@@ -450,7 +473,9 @@ def _normalizar_linea(linea):
     if m:
         resto = m.group(1).strip()
         if (_es_titulo_caps(resto)
-                or re.match(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)\b", resto)):
+                or re.match(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)\b",
+                            resto, re.IGNORECASE)
+                or re.match(r"chapter\s+\d{1,2}\b", resto, re.IGNORECASE)):
             s = resto
     return s
 
@@ -461,11 +486,14 @@ def dividir_en_capitulos(markdown):
     Detecta dos órdenes de marcador en el cuerpo del libro: número solo
     (1-17) seguido del título en mayúsculas, o título en mayúsculas seguido
     del número (la extracción a veces invierte el orden). También reconoce
-    las líneas PREFACE, ACKNOWLEDGMENTS, BIBLIOGRAPHY e INDEX. Las entradas
-    del CONTENTS se descartan porque llevan puntos conductores en las
-    líneas siguientes al título. Si no hay marcador de prefacio, el hueco
-    entre el final del CONTENTS y el capítulo 1 se asigna al prefacio.
+    los encabezados "Chapter N" (pdf-inspector) y las líneas PREFACE,
+    ACKNOWLEDGMENTS, BIBLIOGRAPHY e INDEX. Las entradas del CONTENTS se
+    descartan porque llevan puntos conductores en las líneas siguientes al
+    título. Si no hay marcador de prefacio, el hueco entre el final del
+    CONTENTS y el capítulo 1 se asigna al prefacio.
     """
+    if "\t" in markdown:
+        markdown = re.sub(r"[ \t]+", " ", markdown)
     lineas = markdown.splitlines()
     lineas = [_normalizar_linea(l) for l in lineas]
     n = len(lineas)
@@ -473,12 +501,31 @@ def dividir_en_capitulos(markdown):
     vistos_numericos = set()
 
     def _es_digito_capitulo(s):
-        return bool(re.fullmatch(r"\d{1,2}", s)) and 1 <= int(s) <= 17
+        return bool(re.fullmatch(r"\d{1,2}", s)) and 1 <= int(s) <= 99
+
+    def _indice_chapter_linea(s):
+        if len(re.findall(r"\bchapter\s+\d{1,2}\b", s, re.IGNORECASE)) > 1:
+            return None
+        m = re.match(r"^chapter\s+(\d{1,2})\b", s, re.IGNORECASE)
+        if m:
+            num = int(m.group(1))
+            if 1 <= num <= 99:
+                return num
+        return None
 
     i = 0
     while i < n:
         limpia = lineas[i]
         if not limpia or _es_entrada_toc(limpia):
+            i += 1
+            continue
+
+        num_ch = _indice_chapter_linea(limpia)
+        if num_ch is not None:
+            if (num_ch not in vistos_numericos
+                    and not _tiene_puntos_en_ventana(lineas, i + 1)):
+                marcadores.append((i, num_ch))
+                vistos_numericos.add(num_ch)
             i += 1
             continue
 
@@ -495,16 +542,20 @@ def dividir_en_capitulos(markdown):
             i += 1
             continue
 
-        m_pref = re.match(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)\b", limpia)
-        if (m_pref and _es_titulo_caps(limpia)
+        m_pref = re.match(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)\b",
+                          limpia, re.IGNORECASE)
+        if (m_pref
+                and (_es_titulo_caps(limpia)
+                     or re.fullmatch(r"(PREFACE|ACKNOWLEDGMENTS|BIBLIOGRAPHY|INDEX)",
+                                     limpia, re.IGNORECASE))
                 and not _tiene_puntos_en_ventana(lineas, i + 1)):
-            palabra = m_pref.group(1)
+            palabra = m_pref.group(1).upper()
             if palabra in ("PREFACE", "ACKNOWLEDGMENTS"):
-                indice = 0
+                indice = INDICE_PREFACIO
             elif palabra == "BIBLIOGRAPHY":
-                indice = 18
+                indice = INDICE_BIBLIOGRAFIA
             else:
-                indice = 19
+                indice = INDICE_INDICE
             marcadores.append((i, indice))
             i += 1
             continue
@@ -524,11 +575,12 @@ def dividir_en_capitulos(markdown):
 
     marcadores.sort(key=lambda m: m[0])
 
-    primeros_numericos = [pos for pos, indice in marcadores if 1 <= indice <= 17]
+    primeros_numericos = [pos for pos, indice in marcadores if 1 <= indice <= 99]
     if primeros_numericos:
         p1 = primeros_numericos[0]
         marcadores = [(pos, indice) for pos, indice in marcadores
-                      if indice not in (18, 19) or pos > p1]
+                      if indice not in (INDICE_BIBLIOGRAFIA, INDICE_INDICE)
+                      or pos > p1]
 
     if not any(indice == 0 for _, indice in marcadores):
         primeros = [pos for pos, indice in marcadores if indice == 1]
@@ -1420,14 +1472,32 @@ def main():
             print(f"[lotes] capítulos generados: {resultado_lotes['generados']}")
 
     # Selección de capítulos
+    capitulos_dir = os.path.join(proyecto, CAPITULOS_DIR)
+
+    def _parejas_disponibles():
+        por_indice = {}
+        if os.path.isdir(capitulos_dir):
+            for nombre in os.listdir(capitulos_dir):
+                if not nombre.endswith(".md"):
+                    continue
+                base = nombre[:-3]
+                indice = _indice_de_nombre_base(base)
+                if indice is None:
+                    continue
+                canonico = _nombre_base_capitulo(indice) + ".md"
+                if (nombre != canonico and por_indice.get(indice)
+                        and por_indice[indice][0] == canonico):
+                    continue
+                por_indice[indice] = (nombre, _tex_de_capitulo(base))
+        return [(md, tex) for _, (md, tex)
+                in sorted(por_indice.items(), key=lambda p: p[0])]
+
+    parejas = _parejas_disponibles()
     if args.capitulos:
         deseado = {c.strip() for c in args.capitulos.split(",") if c.strip()}
-        parejas = [(md, tex) for md, tex in ORDEN_CAPITULOS
-                   if any(d in md for d in deseado) or any(d == tex.replace(".tex", "") for d in deseado)]
-    else:
-        parejas = list(ORDEN_CAPITULOS)
-
-    capitulos_dir = os.path.join(proyecto, CAPITULOS_DIR)
+        parejas = [(md, tex) for md, tex in parejas
+                   if any(d in md for d in deseado)
+                   or any(d == tex.replace(".tex", "") for d in deseado)]
 
     faltantes = [md for md, _ in parejas
                  if not os.path.isfile(os.path.join(capitulos_dir, md))]
@@ -1465,7 +1535,7 @@ def main():
     if visuales and visuales.get("imagenes"):
         imagenes_por_capitulo = agrupar_imagenes_por_capitulo(visuales["imagenes"])
 
-    indice_global = {md: i for i, (md, _) in enumerate(ORDEN_CAPITULOS)}
+    indice_global = {md: _indice_de_nombre_base(md[:-3]) for md, _ in parejas}
     cuerpo = []
     for md, tex in parejas:
         cuerpo.append(r"\input{" + tex.replace(".tex", "") + "}")

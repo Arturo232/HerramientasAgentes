@@ -55,6 +55,8 @@ def main():
             path=args.salida,
             format=args.formato,
             print_background=True,
+            prefer_css_page_size=True,
+            margin={"top": "0", "bottom": "0", "left": "0", "right": "0"},
         )
         browser.close()
 

@@ -46,7 +46,47 @@ SUDO_PASS='...' .venv/bin/python scripts/redes/auditoria_wifi.py capture \
 
 # Laboratorio propio (AP de prueba legal)
 .venv/bin/python scripts/redes/auditoria_wifi.py lab
+
+# Red clonada (evil twin) con portal cautivo que captura Y valida la clave
+SUDO_PASS='...' .venv/bin/python scripts/redes/auditoria_wifi.py clon \
+  --ssid "Tdjsjdjksjdnxj" --canal 48 \
+  --captura ~/Documentos/auditoria_wifi/capturas/captura_XXXX.cap \
+  --tiempo 300
+
+# Con intento de deauth previo (limitado en rtw89)
+SUDO_PASS='...' .venv/bin/python scripts/redes/auditoria_wifi.py clon \
+  --ssid "Tdjsjdjksjdnxj" --canal 48 --bssid D6:4E:26:C6:7F:75 --deauth
 ```
+
+## Red clonada (evil twin) — flujo completo
+
+1. `scan` → anota el SSID, BSSID y canal de la red objetivo.
+2. `capture --bssid ... --canal ...` → captura el handshake real (`.cap`).
+   **Este archivo es el que el portal usará para VALIDAR la clave.**
+3. `clon --ssid "<mismo nombre>" --canal N --captura <archivo.cap>` →
+   - Levanta un AP con el MISMO SSID (hostapd, red abierta).
+   - DHCP + redirección DNS (dnsmasq) → todo el tráfico va al portal.
+   - NAT desde la interfaz USB (`enp5s0f3u2`) → el clon da internet real.
+   - Portal en `http://192.168.42.1` que pide la contraseña.
+   - Al escribir la clave, la VALIDA contra la captura (`aircrack-ng`
+     con esa clave única): muestra "correcta" o "incorrecta".
+   - Guarda todo en `~/Documentos/auditoria_wifi/claves_capturadas.log`.
+4. Al terminar (`--tiempo` o cuando se captura) **restaura wlan0 a managed**
+   automáticamente.
+
+El resultado JSON incluye: `clave_capturada`, `clave_valida`, `intentos`,
+`portal` y las `acciones` ejecutadas.
+
+### Limitaciones del rtw89 en el clon
+
+- **Deauth poco fiable**: el clon actúa sobre todo como cebo (mismo SSID +
+  señal fuerte). `--deauth` intenta ráfagas de aireplay-ng pero puede no
+  surtir efecto en este chip.
+- **Validación**: necesita un `.cap` con handshake del AP real. Si la captura
+  no tiene handshake, la validación devuelve `null` (se captura la clave pero
+  no se confirma).
+- Se requiere **internet por USB/ethernet** para el NAT (el clon usa wlan0).
+  El módulo lo restaura todo al finalizar.
 
 ## Flujo recomendado (end-to-end)
 

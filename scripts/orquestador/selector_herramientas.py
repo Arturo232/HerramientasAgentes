@@ -40,7 +40,9 @@ HERRAMIENTAS = {
             "crack wifi", "contraseña wifi", "password wifi", "clave wifi",
             "redes cercanas", "aps cercanos", "ap cercanos", "wpa2", "wpa3",
             "diccionario wifi", "redes wifi disponibles", "escaneo", "escanear",
-            "auditar", "capturar", "crack",
+            "auditar", "capturar", "crack", "clonar wifi", "red gemela",
+            "evil twin", "portal cautivo", "clonar red", "pedir contraseña wifi",
+            "mismo nombre", "clon", "clona",
         ],
         "argumentos": [],
         "gatillos": {
@@ -141,6 +143,12 @@ def _extraer_ruta_captura(intencion):
     return coincidencias[0] if coincidencias else None
 
 
+def _extraer_ssid(intencion):
+    """Extrae el SSID a clonar entre comillas, o None."""
+    coincidencias = re.findall(r"[\"“]([^\"”]+)[\"”]", intencion)
+    return coincidencias[-1].strip() if coincidencias else None
+
+
 def _extraer_idioma(intencion, herramienta):
     """Devuelve el idioma de destino detectado en la intencion, o default."""
     texto = intencion.lower()
@@ -179,6 +187,12 @@ def _argumentos_sugeridos(nombre, intencion):
             return ["words"]
         if any(p in texto for p in ("lab", "laboratorio")):
             return ["lab"]
+        if any(p in texto for p in ("clonar", "red gemela", "evil twin", "portal cautivo", "clonar red", "pedir contraseña", "mismo nombre", "clon", "clona", "red falsa", "imitar la red")):
+            args = ["clon", "--help"]
+            ssid = _extraer_ssid(intencion)
+            if ssid:
+                args = ["clon", "--ssid", ssid]
+            return args
         return ["scan"]
     if nombre == "libro":
         ruta = _extraer_pdf(intencion)

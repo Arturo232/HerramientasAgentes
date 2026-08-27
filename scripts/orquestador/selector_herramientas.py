@@ -31,6 +31,34 @@ HERRAMIENTAS = {
             "problema", "falla", "caida", "se cayo", "cayo",
         ],
     },
+    "auditoria_wifi": {
+        "script": "scripts/redes/auditoria_wifi.py",
+        "descripcion": "Auditoria WiFi de este PC (RTL8852BE): escaneo de APs, modo monitor, captura de handshake y crack offline por diccionario",
+        "palabras_clave": [
+            "auditar wifi", "auditoria wifi", "escaneo de red wifi", "scan wifi",
+            "escanear wifi", "modo monitor", "capturar handshake", "handshake",
+            "crack wifi", "contraseña wifi", "password wifi", "clave wifi",
+            "redes cercanas", "aps cercanos", "ap cercanos", "wpa2", "wpa3",
+            "diccionario wifi", "redes wifi disponibles", "escaneo", "escanear",
+            "auditar", "capturar", "crack",
+        ],
+        "argumentos": [],
+        "gatillos": {
+            "scan": ["scan"],
+            "escaneo": ["scan"],
+            "monitor": ["monitor", "on"],
+            "capturar": [],
+            "handshake": [],
+            "crack": [],
+            "diccionarios": ["words"],
+            "lab": ["lab"],
+        },
+        "gatillos_reconectar": [],
+        "requiere_sudo": True,
+        "aviso_legal": (
+            "Uso exclusivo en redes propias o con autorizacion del propietario."
+        ),
+    },
     "datos": {
         "script": "scripts/datos/generar_excel.py",
         "descripcion": "Generacion de reportes Excel profesionales desde JSON",
@@ -82,13 +110,18 @@ HERRAMIENTAS = {
 
 
 def _emparejar(intencion):
-    """Devuelve {herramienta: puntaje} según palabras clave encontradas."""
+    """Devuelve {herramienta: puntaje} según palabras clave encontradas.
+
+    Las frases más largas (más específicas) pesan más que las cortas,
+    para que "auditar wifi" gane frente al genérico "wifi".
+    """
     texto = intencion.lower()
     puntajes = {}
     for nombre, herramienta in HERRAMIENTAS.items():
-        puntaje = sum(
-            1 for palabra in herramienta["palabras_clave"] if palabra in texto
-        )
+        puntaje = 0
+        for palabra in herramienta["palabras_clave"]:
+            if palabra in texto:
+                puntaje += 1 + len(palabra) / 20.0
         if puntaje:
             puntajes[nombre] = puntaje
     return puntajes
@@ -97,6 +130,14 @@ def _emparejar(intencion):
 def _extraer_pdf(intencion):
     """Devuelve la ruta .pdf encontrada en la intencion, o None."""
     coincidencias = re.findall(r"[\w./~-]+\.pdf", intencion, flags=re.IGNORECASE)
+    return coincidencias[0] if coincidencias else None
+
+
+def _extraer_ruta_captura(intencion):
+    """Devuelve la ruta .cap/.pcap encontrada en la intencion, o None."""
+    coincidencias = re.findall(
+        r"[\w./~-]+\.(?:cap|pcap|pcapng)", intencion, flags=re.IGNORECASE
+    )
     return coincidencias[0] if coincidencias else None
 
 
@@ -123,6 +164,22 @@ def _argumentos_sugeridos(nombre, intencion):
         if any(p in texto for p in ("limpiar", "limpieza", "cache", "huerfano", "huerfanos", "mantenimiento")):
             return ["--limpiar"]
         return ["--info"]
+    if nombre == "auditoria_wifi":
+        if any(p in texto for p in ("crack", "contraseña", "password", "clave")):
+            args = ["crack"]
+            captura = _extraer_ruta_captura(intencion)
+            if captura:
+                args += ["--captura", captura]
+            return args
+        if any(p in texto for p in ("capturar", "handshake")):
+            return ["capture", "--help"]
+        if any(p in texto for p in ("monitor",)):
+            return ["monitor", "on", "--autorizado"] if "off" not in texto else ["monitor", "off"]
+        if any(p in texto for p in ("diccionario", "wordlist")):
+            return ["words"]
+        if any(p in texto for p in ("lab", "laboratorio")):
+            return ["lab"]
+        return ["scan"]
     if nombre == "libro":
         ruta = _extraer_pdf(intencion)
         if not ruta:

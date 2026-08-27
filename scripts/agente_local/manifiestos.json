@@ -5,6 +5,13 @@
       "plantillas": [],
       "ram": "bajo"
     },
+    "scripts/redes/auditoria_wifi.py": {
+      "libs": [],
+      "plantillas": [],
+      "ram": "alto",
+      "estado_base": "DISABLED",
+      "requiere_sudo": true
+    },
     "scripts/datos/generar_excel.py": {
       "libs": ["openpyxl"],
       "plantillas": [],

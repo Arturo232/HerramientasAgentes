@@ -1,6 +1,6 @@
 ---
 name: orquestador-maestro
-description: Skill principal del sistema académico modular. Enruta cualquier petición académica al módulo especializado correcto (literatura/ensayos APA, artes y diseño, matemáticas, biología y ciencias, programación y tecnología, edición de video y audio) sin resolverla con conocimiento genérico. Use when the user makes ANY academic, design, math, science, coding or video request: ensayos, informes, infografías, presentaciones, problemas numéricos, biología, ecosistemas, código, scripts, dudas de Arch Linux, o edición/corte/subtítulos de video y audio.
+description: Skill principal del sistema académico modular. Enruta cualquier petición académica al módulo especializado correcto (literatura/ensayos APA, artes y diseño, matemáticas, biología y ciencias, programación y tecnología, edición de video y audio, lectura de documentos PDF) sin resolverla con conocimiento genérico. Use when the user makes ANY academic, design, math, science, coding, video or document request: ensayos, informes, infografías, presentaciones, problemas numéricos, biología, ecosistemas, código, scripts, dudas de Arch Linux, edición de video/audio, o leer/extraer texto de un PDF.
 ---
 
 # Skill: Orquestador Maestro (Decano del Sistema)
@@ -21,6 +21,7 @@ Cuando el usuario hace una petición, **NUNCA la resuelves directamente con cono
 6. ¿Pide navegar por internet, abrir/ver una página web o acceder a un sitio con login (ej. flipux)? → Delega a `navegacion_web/navegador_web.md` (Explorador Web).
 7. ¿Pide editar un video (cortar, unir, transiciones, overlays, audio, subtítulos, convertir o exportar)? → Delega a `editor-video` (Editor de Video, Shotcut/MLT + ffmpeg).
 8. ¿Pide mejorar/limpiar el audio, quitar ruido, normalizar o mezclar con música? → Delega a `editor-audio` (Editor de Audio).
+9. ¿Pide leer/entender un PDF, extraer texto o tablas, OCR de un documento escaneado, o resumir/buscar en un PDF? → Delega a `documentos` (Lector de Documentos).
 
 ## Acción
 
@@ -48,6 +49,7 @@ Cuando el usuario hace una petición, **NUNCA la resuelves directamente con cono
 | `navegacion_web` | `navegador_web.md` | `modulos/navegacion_web/scripts/abrir_pagina.py` |
 | `edicion_video` | `editor_video.md` | `modulos/edicion_video/scripts/editar_video.py`, `renderizar_moderno.py`, `generar_subtitulos_karaoke.py` |
 | `edicion_audio` | `editor_audio.md` | `modulos/edicion_audio/scripts/procesar_audio.py` |
+| `documentos` | `documentos.md` | `modulos/documentos/scripts/leer_pdf.py` |
 
 ## Sincronización con OpenCode
 

@@ -12,6 +12,7 @@ pensado para que el modelo de IA lea poco y bien (menos tokens).
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -19,6 +20,14 @@ import statistics
 import sys
 
 UMBRAL_TEXTO_POR_PAGINA = 40
+
+
+def _hash_archivo(ruta):
+    h = hashlib.sha256()
+    with open(ruta, "rb") as f:
+        for bloque in iter(lambda: f.read(1 << 20), b""):
+            h.update(bloque)
+    return h.hexdigest()
 
 
 def _cargar_dependencias():
@@ -175,12 +184,23 @@ def _extraer_imagenes(page, dir_imgs, num_pag, doc):
 
 
 def leer(entrada, salida_dir=None, ocr="auto", idioma="spa", extraer_imgs=True,
-         umbral=UMBRAL_TEXTO_POR_PAGINA, paginas=None):
+         umbral=UMBRAL_TEXTO_POR_PAGINA, paginas=None, forzar=False):
     d = deps()
-    doc = d["pymupdf"].open(entrada)
     base = os.path.splitext(os.path.basename(entrada))[0]
     salida_dir = salida_dir or os.path.dirname(os.path.abspath(entrada))
     os.makedirs(salida_dir, exist_ok=True)
+    ruta_md = os.path.join(salida_dir, base + ".md")
+    ruta_json = os.path.join(salida_dir, base + ".json")
+    h = _hash_archivo(entrada)
+    if not forzar and os.path.exists(ruta_json):
+        try:
+            with open(ruta_json, "r", encoding="utf-8") as f:
+                previo = json.load(f)
+            if previo.get("hash") == h:
+                return {"markdown": ruta_md, "json": ruta_json, "info": previo, "cache": True}
+        except Exception:
+            pass
+    doc = d["pymupdf"].open(entrada)
     dir_imgs = os.path.join(salida_dir, "imagenes")
     if extraer_imgs:
         os.makedirs(dir_imgs, exist_ok=True)
@@ -244,8 +264,7 @@ def leer(entrada, salida_dir=None, ocr="auto", idioma="spa", extraer_imgs=True,
         "paginas": paginas_datos,
     }
 
-    ruta_md = os.path.join(salida_dir, base + ".md")
-    ruta_json = os.path.join(salida_dir, base + ".json")
+    info["hash"] = h
     with open(ruta_md, "w", encoding="utf-8") as f:
         f.write(md)
     with open(ruta_json, "w", encoding="utf-8") as f:
@@ -265,6 +284,7 @@ def main(argv):
     ap.add_argument("--sin-imagenes", action="store_true", help="No extraer imagenes")
     ap.add_argument("--umbral", type=int, default=UMBRAL_TEXTO_POR_PAGINA,
                     help="Caracteres minimos por pagina para no usar OCR")
+    ap.add_argument("--forzar", action="store_true", help="Ignorar la cache y reprocesar")
     args = ap.parse_args(argv)
 
     if not os.path.exists(args.input):
@@ -272,11 +292,13 @@ def main(argv):
         return 1
     try:
         res = leer(args.input, args.salida, args.ocr, args.idioma,
-                   not args.sin_imagenes, args.umbral, args.paginas)
+                   not args.sin_imagenes, args.umbral, args.paginas, args.forzar)
     except Exception as e:
         print("ERROR: %s" % e, file=sys.stderr)
         return 1
     info = res["info"]
+    if res.get("cache"):
+        print("Cache: reutilizando extraccion previa")
     print("Markdown: %s" % res["markdown"])
     print("JSON:     %s" % res["json"])
     print("Paginas:  %d | Motores: %s" % (info["paginas_procesadas"], info["motores_usados"]))

@@ -49,6 +49,20 @@ python modulos/documentos/scripts/leer_pdf.py --input documento.pdf
 --umbral N           Caracteres mínimos por página para no usar OCR
 ```
 
+## Búsqueda y resumen (ahorro de tokens)
+
+```bash
+# Devuelve SOLO los fragmentos relevantes (BM25) con su pagina
+python modulos/documentos/scripts/buscar_pdf.py --input doc.pdf -q "flujos de potencia" -k 3
+
+# Resumen extractivo local (sin usar el modelo de IA)
+python modulos/documentos/scripts/resumir_pdf.py --input doc.pdf --max 10 --salida resumen.md
+```
+
+- `buscar_pdf.py` reutiliza la extracción previa (`.json`) o la genera si no existe.
+- `resumir_pdf.py` ordena las ideas por relevancia y las devuelve en orden original.
+- **Caché por hash**: `leer_pdf.py` no reprocesa un PDF que ya extrajo (usar `--forzar` para repetir).
+
 ## Salida pensada para gastar pocos tokens
 
 - **Markdown limpio** con encabezados detectados por tamaño de fuente.

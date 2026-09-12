@@ -15,6 +15,52 @@ El usuario solo interactúa con el Orquestador (skill `orquestador-maestro`). Es
 | Problemas numéricos o estadística | `matematicas` | `analista_logico.md` |
 | Fenómenos naturales, ecosistemas, cuerpo humano | `biologia_y_ciencias` | `investigador_cientifico.md` |
 | Código, scripts, ayuda con Arch Linux | `programacion_y_tech` | `ingeniero_software.md` |
+| Navegar web, abrir páginas, login | `navegacion_web` | `navegador_web.md` |
+| Editar video (cortes, transiciones, subtítulos) | `edicion_video` | `editor_video.md` |
+| Mejorar audio, quitar ruido, mezclar música | `edicion_audio` | `editor_audio.md` |
+| Leer/entender cualquier PDF (texto, tablas, OCR) | `documentos` | `documentos.md` |
+
+## CLI unificado
+
+Un solo punto de entrada para todos los módulos:
+
+```bash
+.venv/bin/python agente.py                 # lista los comandos
+.venv/bin/python agente.py pdf --input documento.pdf
+.venv/bin/python agente.py pdf-buscar --input doc.pdf -q "flujo de potencia"
+.venv/bin/python agente.py pdf-resumir --input doc.pdf
+.venv/bin/python agente.py video editar --plan plan.json
+.venv/bin/python agente.py audio mejorar --input video.mp4
+.venv/bin/python agente.py sync            # sincroniza las skills con OpenCode
+```
+
+## Módulo de Documentos: lector de PDF adaptativo
+
+Lee **cualquier PDF** (texto, tablas, escaneado) eligiendo la herramienta según
+la página: PyMuPDF para texto/tablas, RapidOCR (fallback Tesseract) para
+escaneados y, opcionalmente, Docling para PDFs complejos. Genera Markdown + JSON
+con secciones, tablas y figuras, con **caché por hash**.
+
+```bash
+.venv/bin/python modulos/documentos/scripts/leer_pdf.py --input doc.pdf
+.venv/bin/python modulos/documentos/scripts/buscar_pdf.py --input doc.pdf -q "consulta" -k 5
+.venv/bin/python modulos/documentos/scripts/resumir_pdf.py --input doc.pdf --max 10
+```
+
+## Sincronización de skills
+
+`modulos/*/skills/*.md` y `skills/*.md` son la fuente; las copias globales de
+OpenCode se generan con:
+
+```bash
+.venv/bin/python sincronizar_skills.py
+```
+
+## Pruebas
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+```
 
 ## Estructura del repositorio
 

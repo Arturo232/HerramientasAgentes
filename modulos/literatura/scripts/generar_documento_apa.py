@@ -236,6 +236,46 @@ def plain_text(tok):
     return " ".join(parts)
 
 
+def _fill_cell(cell, nodes, bold=False):
+    cell.text = ""
+    p = cell.paragraphs[0]
+    pf = p.paragraph_format
+    pf.line_spacing = 1.0
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    render_inline(p, nodes)
+    for run in p.runs:
+        run.font.bold = bold
+
+
+def add_table(doc, tok):
+    head = None
+    body = []
+    for child in tok.get("children", []):
+        if child["type"] == "table_head":
+            head = child.get("children", [])
+        elif child["type"] == "table_body":
+            body = child.get("children", [])
+    ncols = len(head) if head else (len(body[0].get("children", [])) if body else 0)
+    nrows = (1 if head else 0) + len(body)
+    if not ncols or not nrows:
+        return
+    table = doc.add_table(rows=nrows, cols=ncols)
+    table.style = "Table Grid"
+    table.autofit = True
+    r = 0
+    if head:
+        for c, cell_tok in enumerate(head):
+            _fill_cell(table.cell(r, c), cell_tok.get("children", []), bold=True)
+        r += 1
+    for row in body:
+        for c, cell_tok in enumerate(row.get("children", [])):
+            if c < ncols:
+                _fill_cell(table.cell(r, c), cell_tok.get("children", []), bold=False)
+        r += 1
+    para(doc)
+
+
 def add_list(doc, tok):
     ordered = tok.get("attrs", {}).get("ordered", False)
     num = 0
@@ -282,6 +322,8 @@ def add_body(doc, meta, tokens):
                     render_inline(p, sub.get("children", []))
         elif t == "list":
             add_list(doc, tok)
+        elif t == "table":
+            add_table(doc, tok)
         else:
             continue
 
@@ -348,7 +390,7 @@ def main():
         return
 
     meta, body = parse_front_matter(text)
-    md = mistune.create_markdown(renderer=None)
+    md = mistune.create_markdown(renderer=None, plugins=["table"])
     tokens = md(body)
 
     doc = setup_document()

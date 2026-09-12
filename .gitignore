@@ -6,3 +6,13 @@ __pycache__/
 *.docx
 !plantillas/apa_base.docx
 borrador*.md
+
+# Binarios y modelos pesados de los modulos de edicion (no versionar)
+modulos/edicion_video/bin/
+modulos/edicion_video/models/
+modulos/edicion_audio/bin/
+modulos/edicion_audio/models/
+*.bin
+*.ggml
+*.exe
+.cache/

@@ -1,6 +1,6 @@
 ---
 name: orquestador-maestro
-description: Skill principal del sistema académico modular. Enruta cualquier petición académica al módulo especializado correcto (literatura/ensayos APA, artes y diseño, matemáticas, biología y ciencias, programación y tecnología) sin resolverla con conocimiento genérico. Use when the user makes ANY academic, design, math, science or coding request: ensayos, informes, infografías, presentaciones, problemas numéricos, biología, ecosistemas, código, scripts o dudas de Arch Linux.
+description: Skill principal del sistema académico modular. Enruta cualquier petición académica al módulo especializado correcto (literatura/ensayos APA, artes y diseño, matemáticas, biología y ciencias, programación y tecnología, edición de video y audio) sin resolverla con conocimiento genérico. Use when the user makes ANY academic, design, math, science, coding or video request: ensayos, informes, infografías, presentaciones, problemas numéricos, biología, ecosistemas, código, scripts, dudas de Arch Linux, o edición/corte/subtítulos de video y audio.
 ---
 
 # Skill: Orquestador Maestro (Decano del Sistema)
@@ -18,6 +18,9 @@ Cuando el usuario hace una petición, **NUNCA la resuelves directamente con cono
 3. ¿Pide resolver problemas numéricos o estadística? → Delega a `matematicas/analista_logico.md` (Analista Lógico).
 4. ¿Pide explicar un fenómeno natural, ecosistema o cuerpo humano? → Delega a `biologia_y_ciencias/investigador_cientifico.md` (Investigador Científico).
 5. ¿Pide código, scripts o ayuda con el PC en Arch Linux? → Delega a `programacion_y_tech/ingeniero_software.md` (Ingeniero de Software).
+6. ¿Pide navegar por internet, abrir/ver una página web o acceder a un sitio con login (ej. flipux)? → Delega a `navegacion_web/navegador_web.md` (Explorador Web).
+7. ¿Pide editar un video (cortar, unir, transiciones, overlays, audio, subtítulos, convertir o exportar)? → Delega a `editor-video` (Editor de Video, Shotcut/MLT + ffmpeg).
+8. ¿Pide mejorar/limpiar el audio, quitar ruido, normalizar o mezclar con música? → Delega a `editor-audio` (Editor de Audio).
 
 ## Acción
 
@@ -42,6 +45,9 @@ Cuando el usuario hace una petición, **NUNCA la resuelves directamente con cono
 | `matematicas` | `analista_logico.md` | (por definir) |
 | `biologia_y_ciencias` | `investigador_cientifico.md` | (por definir) |
 | `programacion_y_tech` | `ingeniero_software.md` | (por definir) |
+| `navegacion_web` | `navegador_web.md` | `modulos/navegacion_web/scripts/abrir_pagina.py` |
+| `edicion_video` | `editor_video.md` | `modulos/edicion_video/scripts/editar_video.py`, `renderizar_moderno.py`, `generar_subtitulos_karaoke.py` |
+| `edicion_audio` | `editor_audio.md` | `modulos/edicion_audio/scripts/procesar_audio.py` |
 
 ## Sincronización con OpenCode
 
@@ -51,4 +57,8 @@ Copia versionada de la skill global:
 ~/.config/opencode/skills/orquestador-maestro/SKILL.md
 ```
 
-Mantener ambos archivos sincronizados.
+Sincronizar todas las skills de una sola vez (desde la raíz del repo):
+
+```bash
+.venv/bin/python sincronizar_skills.py
+```

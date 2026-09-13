@@ -11,10 +11,11 @@ import json
 import os
 import sys
 
-_SKILLS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_VIDEO_SCRIPTS = os.path.join(_SKILLS, "editor-video", "scripts")
-if _VIDEO_SCRIPTS not in sys.path:
-    sys.path.insert(0, _VIDEO_SCRIPTS)
+_BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+for _cand in ("editor-video", "edicion_video"):
+    _p = os.path.join(_BASE, _cand, "scripts")
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import comun
 

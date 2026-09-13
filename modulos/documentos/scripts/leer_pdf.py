@@ -183,8 +183,20 @@ def _extraer_imagenes(page, dir_imgs, num_pag, doc):
     return rutas
 
 
+def _docling_markdown(pdf):
+    d = deps()
+    if d["docling"] is None:
+        raise RuntimeError("Docling no esta instalado. Instala con: pip install docling")
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    from docling.document_converter import DocumentConverter
+    convertidor = DocumentConverter()
+    resultado = convertidor.convert(pdf)
+    return resultado.document.export_to_markdown()
+
+
 def leer(entrada, salida_dir=None, ocr="auto", idioma="spa", extraer_imgs=True,
-         umbral=UMBRAL_TEXTO_POR_PAGINA, paginas=None, forzar=False):
+         umbral=UMBRAL_TEXTO_POR_PAGINA, paginas=None, forzar=False, motor="auto"):
     d = deps()
     base = os.path.splitext(os.path.basename(entrada))[0]
     salida_dir = salida_dir or os.path.dirname(os.path.abspath(entrada))
@@ -200,6 +212,16 @@ def leer(entrada, salida_dir=None, ocr="auto", idioma="spa", extraer_imgs=True,
                 return {"markdown": ruta_md, "json": ruta_json, "info": previo, "cache": True}
         except Exception:
             pass
+    if motor == "docling":
+        md = _docling_markdown(entrada)
+        info = {"archivo": os.path.abspath(entrada), "motor": "docling",
+                "paginas_procesadas": 0, "motores_usados": {"docling": 1},
+                "hash": h, "paginas": []}
+        with open(ruta_md, "w", encoding="utf-8") as f:
+            f.write(md)
+        with open(ruta_json, "w", encoding="utf-8") as f:
+            json.dump(info, f, ensure_ascii=False, indent=1)
+        return {"markdown": ruta_md, "json": ruta_json, "info": info}
     doc = d["pymupdf"].open(entrada)
     dir_imgs = os.path.join(salida_dir, "imagenes")
     if extraer_imgs:
@@ -285,6 +307,8 @@ def main(argv):
     ap.add_argument("--umbral", type=int, default=UMBRAL_TEXTO_POR_PAGINA,
                     help="Caracteres minimos por pagina para no usar OCR")
     ap.add_argument("--forzar", action="store_true", help="Ignorar la cache y reprocesar")
+    ap.add_argument("--motor", choices=["auto", "docling"], default="auto",
+                    help="auto = PyMuPDF/OCR adaptativo; docling = PDFs complejos (requiere docling)")
     args = ap.parse_args(argv)
 
     if not os.path.exists(args.input):
@@ -292,7 +316,8 @@ def main(argv):
         return 1
     try:
         res = leer(args.input, args.salida, args.ocr, args.idioma,
-                   not args.sin_imagenes, args.umbral, args.paginas, args.forzar)
+                   not args.sin_imagenes, args.umbral, args.paginas, args.forzar,
+                   args.motor)
     except Exception as e:
         print("ERROR: %s" % e, file=sys.stderr)
         return 1

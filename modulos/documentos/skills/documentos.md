@@ -47,6 +47,7 @@ python modulos/documentos/scripts/leer_pdf.py --input documento.pdf
 --paginas 1-5        Procesar solo un rango
 --sin-imagenes       No extraer figuras
 --umbral N           Caracteres mínimos por página para no usar OCR
+--motor auto|docling  docling = máxima calidad en tablas/fórmulas (requiere docling)
 ```
 
 ## Búsqueda y resumen (ahorro de tokens)

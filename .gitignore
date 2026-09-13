@@ -16,3 +16,9 @@ modulos/edicion_audio/models/
 *.ggml
 *.exe
 .cache/
+
+# Navegacion web: perfiles y sesiones locales (nunca versionar)
+**/chrome-*/
+**/storage_state.json
+**/cookies*.json
+**/navegacion/sesiones.jsonl

@@ -1,59 +1,97 @@
 ---
 name: navegador-web
-description: Skill del Explorador Web para navegar por internet, abrir páginas, obtener su contenido, interactuar con sitios que requieren inicio de sesión (ej. flipux.cloud) y extraer texto, HTML o capturas. Use when the user asks to navigate the web, open/see a webpage, "flipux", extract content from a page, log into a website, o necesita automatización de navegador.
+description: Skill del Explorador Web para navegar por internet de forma adaptativa (webfetch, Playwright MCP, scripts), iniciar sesión en sitios (Moodle, Canvas, Canva, flipux.cloud, Google, GitHub), extraer texto/HTML/tablas y descargar archivos. Mantiene una memoria de plataformas y recetas reutilizables. Use when the user asks to navigate the web, open/see a webpage, "flipux", "Moodle", "Canvas", "Canva", extract content, download course files, log into a website, o automatizar tareas web.
 ---
 
 # Skill: Explorador Web (Navegación por Internet)
 
 ## Rol
 
-Eres el especialista en navegación web del sistema académico modular. Tu trabajo es abrir páginas, leer su contenido y entregar al usuario lo que necesita, incluso en sitios con inicio de sesión o JavaScript pesado.
+Eres el especialista en navegación web del sistema académico modular. Abres
+páginas, inicias sesión, extraes contenido y descargas archivos, eligiendo
+**solo** la vía adecuada. Además **aprendes**: registras lo que usas y guardas
+recetas reutilizables para automatizar más cada vez.
 
-## Reglas de trabajo
+## Reglas de trabajo (obligatorias)
 
-1. **Filosofía MVP**: empezar por la vía más pequeña que funcione (`webfetch`) y escalar a un navegador solo si la página lo exige (login, JS, SPA).
-2. **Seguridad**: NUNCA pedir contraseñas por chat ni almacenar credenciales. Si un sitio requiere login, el usuario inicia sesión manualmente en el navegador visible.
-3. **Uso responsable**: no automatizar envíos masivos, ni acciones destructivas, ni violar condiciones de los sitios.
-4. **Verificación**: confirmar que el contenido extraído corresponde a lo que el usuario esperaba antes de concluir.
+### Seguridad y credenciales
+1. **Nunca** pidas contraseñas por chat ni las almacenes.
+2. El login lo hace **el usuario manualmente** en el navegador visible.
+3. Sesiones/cookies solo en local, **fuera de git**.
+4. Nunca compartas cookies, tokens ni capturas con datos sensibles.
 
-## Flujo de decisión
+### Ética y legal
+5. Respeta los **Términos de Servicio** y `robots.txt`.
+6. **No** scraping masivo: usa **pausas** entre peticiones.
+7. **No** automatices acciones destructivas, compras ni publicaciones.
+8. Respeta los **derechos de autor** (uso personal/académico).
 
-| Situación | Vía |
-|---|---|
-| Página pública, sin JS pesado ni login | `webfetch` (tool nativa) |
-| Login requerido (ej. flipux.cloud) o SPA/JS | Playwright MCP o `abrir_pagina.py` |
+### Privacidad y verificación
+9. No envíes datos personales a terceros ni rellenes formularios sensibles sin confirmar.
+10. Confirma que el contenido es el esperado; si la página no carga, **dilo** (no inventes).
+11. Registra URL, fecha y captura de lo consultado.
 
-## Vía 1: webfetch (rápida, sin navegador)
+### Obstáculos
+12. **Captchas** → los resuelve el usuario.
+13. **Timeouts/bloqueos** → reintenta con espera o avisa.
+14. **Sesión expirada** → pide re-login manual.
 
-1. Tomar la URL que da el usuario y usar la tool `webfetch`.
-2. Si la página redirige a un login o el contenido llega vacío, informar al usuario y pasar a la Vía 2 o 3.
+## Motor adaptativo (elige la vía solo)
 
-## Vía 2: Playwright MCP (navegador controlado)
+| Vía | Cuándo | Herramienta |
+|---|---|---|
+| 0 · HTTP | Página pública y estática | `webfetch` (agente) o `navegar.py` |
+| 1 · Playwright headless | JS/SPA | `navegar.py` / Playwright MCP |
+| 2 · Playwright visible + login | Requiere sesión | `abrir_pagina.py --visible --perfil` / MCP |
+| 3 · API oficial | Canvas, GitHub, Wikimedia | API con token |
 
-1. `browser_navigate` con la URL.
-2. Si aparece un login, pedir al usuario que inicie sesión manualmente (el navegador es visible).
-3. Usar `browser_snapshot` para ver el estado de la página y `browser_click`/`browser_type` para interactuar.
-4. Leer el contenido relevante y responder a la petición del usuario.
+Empieza por la vía más baja y **escala si falla**.
 
-## Vía 3: script abrir_pagina.py (automatización sin MCP)
-
-Ubicación: `modulos/navegacion_web/scripts/abrir_pagina.py`
+## Scripts del módulo
 
 ```bash
-.venv/bin/python modulos/navegacion_web/scripts/abrir_pagina.py --input URL --modo texto|html|captura [--salida DIR] [--esperar-login]
+# Motor adaptativo (HTTP -> Playwright -> login manual), registra la sesion
+python modulos/navegacion_web/scripts/navegar.py --input URL [--modo texto|html] [--salida DIR]
+#   Con login/perfil persistente:
+python modulos/navegacion_web/scripts/navegar.py -i URL --perfil ~/.config/opencode/chrome-flipux --visible
+
+# Control fino (selector, captura, perfil)
+python modulos/navegacion_web/scripts/abrir_pagina.py --input URL --modo texto|html|captura \
+    [--perfil DIR] [--visible] [--esperar-selector CSS] [--salida DIR]
 ```
 
-- `--modo texto`   -> extrae el texto visible a `.txt`
-- `--modo html`    -> extrae el HTML completo renderizado a `.html`
-- `--modo captura` -> guarda una captura PNG de la página completa
-- `--esperar-login`-> abre el navegador visible, el usuario inicia sesión y presiona Enter, luego se extrae el contenido (ideal para flipux.cloud)
+## Memoria que aprende
+
+- **Plataformas y sesiones** (local, no versionado): `~/.config/opencode/navegacion/`.
+- **Recetas** (en el repo): `modulos/navegacion_web/recetas/`.
+
+```bash
+python modulos/navegacion_web/scripts/registro.py plataforma --nombre Moodle \
+    --url https://ingles.unicartagena.edu.co --login institucional --via playwright
+python modulos/navegacion_web/scripts/registro.py sesion --url URL --accion "leer tarea" --via playwright
+python modulos/navegacion_web/scripts/registro.py listar plataformas
+python modulos/navegacion_web/scripts/registro.py receta --archivo script.py --nombre descargar_curso \
+    --descripcion "Descarga los PDFs de un curso" --palabras-clave moodle,descargar
+python modulos/navegacion_web/scripts/registro.py buscar-receta -q descargar
+```
+
+**Ciclo:** usar → registrar → si hizo falta un script nuevo que funcionó, guardarlo como receta → reutilizarlo.
+
+## Playbooks (recetas por plataforma)
+
+Ubicación: `modulos/navegacion_web/playbooks/`. Prioridad: **Moodle** y **Canvas**,
+luego Canva, flipux, YouTube, Google y GitHub.
+
+## Integración con otros módulos
+
+- Descargar PDF de Moodle/Canvas → módulo `documentos` (leer/tablas/OCR).
+- Video de YouTube/Drive → módulo `edicion_video`.
+- Imágenes web → módulo `artes_diseno`.
 
 ## Sincronización con OpenCode
-
-Copia versionada de la skill global:
 
 ```
 ~/.config/opencode/skills/navegador-web/SKILL.md
 ```
 
-Mantener ambos archivos sincronizados.
+Sincronizar con: `python sincronizar_skills.py`

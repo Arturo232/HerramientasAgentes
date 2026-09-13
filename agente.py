@@ -31,6 +31,8 @@ COMANDOS = {
     "infografia": ("modulos/artes_diseno/scripts/renderizador_playwright.py", "Render HTML -> PDF (infografias)"),
     "pptx": ("modulos/artes_diseno/scripts/motor_pptx_visual.py", "Inyectar texto/imagenes en plantillas PPTX"),
     "web": ("modulos/navegacion_web/scripts/abrir_pagina.py", "Abrir/extraer una pagina web"),
+    "navegar": ("modulos/navegacion_web/scripts/navegar.py", "Navegacion adaptativa (HTTP/Playwright/login)"),
+    "registro": ("modulos/navegacion_web/scripts/registro.py", "Memoria web: plataformas, sesiones y recetas"),
     "sync": ("sincronizar_skills.py", "Sincronizar skills del repo con OpenCode"),
 }
 

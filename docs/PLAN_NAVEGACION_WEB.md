@@ -80,17 +80,20 @@ El módulo **analiza el objetivo y elige la vía** automáticamente, escalando s
 El objetivo: que cada vez haga **más cosas con scripts** y menos a mano.
 
 ```
+# Versionado en el repo (comparte el aprendizaje):
 modulos/navegacion_web/
-├── registro/
-│   ├── plataformas.json     # catálogo de plataformas (url, login, playbook, última vez)
-│   └── sesiones.jsonl       # bitácora: fecha, url, acción, vía, resultado
 ├── playbooks/
-│   ├── canvas.md            # recetas paso a paso por plataforma
-│   ├── moodle.md
+│   ├── moodle.md            # recetas paso a paso por plataforma (prioridad 1)
+│   ├── canvas.md            # (prioridad 2)
 │   ├── canva.md
 │   └── ...
 └── recetas/                 # scripts reutilizables que ya funcionaron
     └── descargar_archivos_curso.py
+
+# Local, NO versionado (datos personales/sesiones):
+~/.config/opencode/navegacion/
+├── plataformas.json         # catálogo de plataformas usadas (url, login, última vez)
+└── sesiones.jsonl           # bitácora: fecha, url, acción, vía, resultado
 ```
 
 - **Registro de plataformas:** cada plataforma usada queda anotada (con su tipo de login y notas).
@@ -121,9 +124,11 @@ modulos/navegacion_web/
 
 ## 9. Almacenamiento y seguridad
 
+- **Repo (versionado):** `playbooks/` y `recetas/` (comparten el aprendizaje, sin credenciales).
+- **Local (NO versionado):** `~/.config/opencode/navegacion/` con `plataformas.json` y `sesiones.jsonl`.
 - Perfiles y cookies en `~/.config/opencode/` (fuera del repo).
-- Añadir a `.gitignore`: `**/chrome-*/`, `**/storage_state.json`, `**/cookies*.json`.
-- El `registro/` y las `recetas/` **sí** se versionan (no contienen credenciales).
+- Añadir a `.gitignore`: `**/chrome-*/`, `**/storage_state.json`, `**/cookies*.json`, `**/navegacion/sesiones.jsonl`.
+- Nunca versionar credenciales ni estados de sesión.
 
 ## 10. Roadmap
 
@@ -131,10 +136,15 @@ modulos/navegacion_web/
 |---|---|---|
 | 1 | Reglas + motor adaptativo + `registro.py` + mejorar `abrir_pagina.py` | Navegación guiada y registrada |
 | 2 | `sesion.py` + `descargar.py` + `extraer_tabla.py` | Automatización y descargas |
-| 3 | Playbooks Canvas / Moodle / Canva + primeras recetas | Flujos universitarios listos |
+| 3 | Playbooks **Moodle** y **Canvas** primero, luego Canva/flipux/YouTube/Google/GitHub | Flujos universitarios listos |
 | 4 | Integración con `documentos` y `edicion_video` | Flujo web→trabajo completo |
 
-## 11. Decisiones pendientes
+## 11. Decisiones tomadas
 
-- ¿El `registro/` y las `recetas/` se guardan en el repo (versionados) o en local?
-- ¿Empezamos los playbooks por **Canvas y Moodle**?
+- **Almacenamiento:** mixto → **recetas y playbooks en el repo**; **registro de
+  sesiones y catálogo en local** (`~/.config/opencode/navegacion/`).
+- **Aprendizaje:** **automático** → registra cada plataforma/sesión solo y guarda
+  como receta los scripts nuevos que funcionen.
+- **Orden de playbooks:** **Moodle y Canvas primero** (luego Canva, flipux,
+  YouTube, Google, GitHub).
+- **Ejecución:** por ahora **solo el plan**; la Fase 1 se ejecuta después.

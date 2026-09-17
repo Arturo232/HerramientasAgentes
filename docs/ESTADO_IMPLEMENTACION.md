@@ -125,8 +125,9 @@ Salida esperada del contrato (ejemplo real):
    `renderizar_mlt.py`, `inspeccionar_media.py`, `mapear_tiempos.py`,
    `recortar_silencios.py`, `generar_subtitulos_karaoke.py` (hoy son librería
    interna que invocan los scripts principales; ya funcionan).
-2. **Fase 0 pendiente**: decidir si `HerramientasAgentes` se mueve fuera de
-   `SEP-PY` (repos hermanos) y commitear los cambios.
+2. **Fase 0 (resuelta)**: se mantiene la ubicación actual (mover el repo rompería
+   el `.venv` y la ruta del MCP registrada en `opencode.jsonc`). `SEP-PY/.gitignore`
+   ya ignora el repo anidado. Commits: `ad52716` (agentes) y `105995a` (SPT).
 
 ---
 

@@ -8,14 +8,21 @@ Escalera:
 Registra la sesion (via, resultado) en la memoria del modulo.
 """
 
-import argparse
 import os
 import re
 import sys
 import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import registro
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _AQUI)
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_AQUI)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+
+import registro  # noqa: E402
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
@@ -144,8 +151,7 @@ def navegar(url, modo="texto", salida=".", perfil=None, visible=False,
             "caracteres": len(contenido)}
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Navegacion adaptativa (HTTP/Playwright/login).")
+def _construir(ap):
     ap.add_argument("--input", "-i", required=True, help="URL")
     ap.add_argument("--modo", choices=["texto", "html"], default="texto")
     ap.add_argument("--salida", "-o", default=".")
@@ -153,17 +159,20 @@ def main(argv):
     ap.add_argument("--visible", action="store_true", help="Abrir el navegador visible")
     ap.add_argument("--esperar-selector", help="Esperar a que aparezca un selector CSS")
     ap.add_argument("--timeout", type=int, default=30)
-    args = ap.parse_args(argv)
 
-    res = navegar(args.input, args.modo, args.salida, args.perfil, args.visible,
-                  args.esperar_selector, args.timeout)
+
+def _accion(ns):
+    res = navegar(ns.input, ns.modo, ns.salida, ns.perfil, ns.visible,
+                  ns.esperar_selector, ns.timeout)
+    arts = [artefacto(ns.modo, res["archivo"])] if res["archivo"] else []
+    meta = {"via": res["via"], "url_final": res["url_final"],
+            "requiere_login": res["requiere_login"]}
     if res["requiere_login"]:
-        print("La pagina requiere inicio de sesion. Reintenta con --visible --perfil CARPETA.")
-    print("Via usada: %s" % res["via"])
-    if res["archivo"]:
-        print("Guardado: %s (%d caracteres)" % (res["archivo"], res["caracteres"]))
-    return 0
+        meta["sugerencia"] = "Reintenta con --visible --perfil CARPETA"
+    return exito(datos=res, meta=meta, artefactos=arts)
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("navegacion_web", _construir, _accion, sys.argv[1:],
+                        prog="navegar",
+                        descripcion="Navegacion adaptativa (HTTP/Playwright/login)."))

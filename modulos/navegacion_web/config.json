@@ -1,0 +1,38 @@
+{
+  "sima": {
+    "base": "https://sima.unicartagena.edu.co",
+    "periodo": "2026-2",
+    "login": "institucional (usuario = numero de identificacion, clave = SMA)",
+    "cursos": {
+      "Comportamiento Organizacional": 862,
+      "Fundamentos de Mercado": 863,
+      "Geografia Economica": 864,
+      "Gestion Ambiental": 865,
+      "Investigacion de Operaciones": 867,
+      "Mercados Financieros": 868,
+      "Negocios Internacionales": 869
+    }
+  },
+  "ingles": {
+    "base": "https://ingles.unicartagena.edu.co",
+    "curso": 444
+  },
+  "drive": {
+    "semestre_quinto": "1XJZUBGLiM_YAL7e6CetEiO5qO7dfwWHG",
+    "materias_quinto": {
+      "COMPORTAMIENTO ORGANIZACIONAL": "1BBUoLHAPE_XxB43LsRQ9gd8VgiofwTWl",
+      "FUNDAMENTOS DE MERCADO": "1XhB467Lehqck4cRMVPOsrURX2GaHOqTQ",
+      "GEOGRAFIA ECONOMICA": "16B850HUMCm5F8A_-nh3r_74X0_7LsUqi",
+      "GESTION AMBIENTAL": "1QloU1n4cX6-lHm399YXK_bLNNzP1hJPs",
+      "INGLES V": "1HabaHciGGKpWXxUGX3eD5Cn8KYoG2YwE",
+      "INVESTIGACION DE OPERACIONES": "1vcuyFV6sYZ9TldhyjOl60Y25J0rzxwZZ",
+      "MERCADOS FINANCIEROS": "1aNcs5qAZD7E68raDN8wsAdrh2tswIiXo",
+      "NEGOCIOS INTERNACIONALES": "1XBbebK9kSNu3n-iXypvfnCeVRNmr_Vl2"
+    }
+  },
+  "rutas": {
+    "actividades": "C:\\Users\\ARTURO ANDRES\\Documents\\actividades de la unicartagena",
+    "perfil_chrome": "C:\\Users\\ARTURO ANDRES\\.config\\opencode\\chrome-flipux",
+    "memoria_local": "~/.config/opencode/navegacion"
+  }
+}

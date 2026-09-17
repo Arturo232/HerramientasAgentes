@@ -1,9 +1,15 @@
 """Sincroniza las skills del repositorio con las skills globales de OpenCode.
 
-Copia cada `modulos/<facultad>/skills/<skill>.md` (y `skills/<skill>.md`) a
-`~/.config/opencode/skills/<skill-con-guiones>/SKILL.md`, y ademas copia los
-scripts del modulo a la carpeta `scripts/` de la skill para que quede
-autocontenida.
+Copia, por cada módulo:
+  - `modulos/<mod>/skills/<skill>.md`  ->  `~/.config/opencode/skills/<skill>/SKILL.md`
+  - `modulos/<mod>/scripts/*.py`       ->  `.../<skill>/scripts/`
+  - `modulos/<mod>/playbooks/**`       ->  `.../<skill>/playbooks/`
+  - `modulos/<mod>/recetas/*`          ->  `.../<skill>/recetas/`
+  - `modulos/<mod>/config.json`        ->  `.../<skill>/config.json`
+  - `modulos/<mod>/*.md` (docs)        ->  `.../<skill>/`
+  - `skills/<skill>.md` (raíz)         ->  `~/.config/opencode/skills/<skill>/SKILL.md`
+
+La carpeta destino es **generada**: se puede borrar y recrear sin pérdida.
 """
 
 import argparse
@@ -19,19 +25,46 @@ def nombre_skill(stem):
     return stem.replace("_", "-")
 
 
+def _copiar_py(origen_dir, destino_dir):
+    if not os.path.isdir(origen_dir):
+        return 0
+    os.makedirs(destino_dir, exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(origen_dir)):
+        ruta = os.path.join(origen_dir, f)
+        if os.path.isfile(ruta) and f.endswith((".py", ".json")):
+            shutil.copy2(ruta, os.path.join(destino_dir, f))
+            n += 1
+    return n
+
+
+def _copiar_md(origen_dir, destino_dir):
+    if not os.path.isdir(origen_dir):
+        return 0
+    os.makedirs(destino_dir, exist_ok=True)
+    n = 0
+    for f in sorted(os.listdir(origen_dir)):
+        ruta = os.path.join(origen_dir, f)
+        if os.path.isfile(ruta) and f.endswith(".md"):
+            shutil.copy2(ruta, os.path.join(destino_dir, f))
+            n += 1
+    return n
+
+
 def recolectar(repo):
+    """Devuelve tareas: (origen_skill, nombre, modulo_dir|None)."""
     tareas = []
     modulos = os.path.join(repo, "modulos")
     if os.path.isdir(modulos):
         for mod in sorted(os.listdir(modulos)):
-            sk = os.path.join(modulos, mod, "skills")
+            mod_dir = os.path.join(modulos, mod)
+            sk = os.path.join(mod_dir, "skills")
             if not os.path.isdir(sk):
                 continue
-            scripts = os.path.join(modulos, mod, "scripts")
             for f in sorted(os.listdir(sk)):
                 if f.endswith(".md"):
                     stem = os.path.splitext(f)[0]
-                    tareas.append((os.path.join(sk, f), nombre_skill(stem), scripts))
+                    tareas.append((os.path.join(sk, f), nombre_skill(stem), mod_dir))
     skroot = os.path.join(repo, "skills")
     if os.path.isdir(skroot):
         for f in sorted(os.listdir(skroot)):
@@ -43,21 +76,28 @@ def recolectar(repo):
 
 def sincronizar(destino, dry_run=False):
     tareas = recolectar(REPO)
-    for origen, nombre, scripts in tareas:
+    total = 0
+    for origen, nombre, mod_dir in tareas:
         ddir = os.path.join(destino, nombre)
         marca = "[dry] " if dry_run else ""
         print("%s%s -> %s" % (marca, origen, os.path.join(ddir, "SKILL.md")))
-        if dry_run:
-            continue
-        os.makedirs(ddir, exist_ok=True)
-        shutil.copy2(origen, os.path.join(ddir, "SKILL.md"))
-        if scripts and os.path.isdir(scripts):
-            sdst = os.path.join(ddir, "scripts")
-            os.makedirs(sdst, exist_ok=True)
-            for sf in sorted(os.listdir(scripts)):
-                if sf.endswith(".py"):
-                    shutil.copy2(os.path.join(scripts, sf), os.path.join(sdst, sf))
-    print("Sincronizadas %d skills en %s" % (len(tareas), destino))
+        if not dry_run:
+            os.makedirs(ddir, exist_ok=True)
+            shutil.copy2(origen, os.path.join(ddir, "SKILL.md"))
+            if mod_dir:
+                _copiar_py(os.path.join(mod_dir, "scripts"), os.path.join(ddir, "scripts"))
+                _copiar_md(os.path.join(mod_dir, "playbooks"), os.path.join(ddir, "playbooks"))
+                _copiar_py(os.path.join(mod_dir, "recetas"), os.path.join(ddir, "recetas"))
+                cfg = os.path.join(mod_dir, "config.json")
+                if os.path.isfile(cfg):
+                    shutil.copy2(cfg, os.path.join(ddir, "config.json"))
+                # docs sueltas del módulo (excepto la skill)
+                for f in sorted(os.listdir(mod_dir)):
+                    ruta = os.path.join(mod_dir, f)
+                    if os.path.isfile(ruta) and f.endswith(".md"):
+                        shutil.copy2(ruta, os.path.join(ddir, f))
+        total += 1
+    print("Sincronizadas %d skills en %s" % (total, destino))
     return 0
 
 

@@ -5,14 +5,20 @@ fundido, zoom suave opcional, barra de progreso, títulos animados, lower-third,
 marca de agua y subtítulos karaoke (ASS) quemados.
 """
 
-import argparse
 import json
 import os
 import shutil
 import subprocess
 import sys
 
-import comun
+_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_SCRIPTS)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+import comun  # noqa: E402
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 
 def _esc(texto):
@@ -150,8 +156,7 @@ def _cargar(ruta):
         return json.load(f)
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Render moderno (vertical u horizontal).")
+def _construir(ap):
     ap.add_argument("--input", "-i", required=True)
     ap.add_argument("--salida", "-o", required=True)
     ap.add_argument("--ass")
@@ -169,23 +174,22 @@ def main(argv):
     ap.add_argument("--alto", type=int, default=0)
     ap.add_argument("--crf", type=int, default=20)
     ap.add_argument("--preset", default="medium")
-    args = ap.parse_args(argv)
 
-    ancho, alto = args.ancho, args.alto
+
+def _accion(ns):
+    ancho, alto = ns.ancho, ns.alto
     if not ancho or not alto:
-        ancho, alto = (1920, 1080) if args.formato == "horizontal" else (1080, 1920)
-    try:
-        ruta = renderizar(args.input, args.salida, args.ass, _cargar(args.titulos),
-                          _cargar(args.broll), _cargar(args.lowerthird), args.marca,
-                          not args.sin_progreso, args.zoom, not args.sin_grade,
-                          not args.sin_sharpen, ancho, alto, args.crf, args.preset,
-                          args.formato, args.fuente)
-        print("Render moderno en %s" % ruta)
-        return 0
-    except Exception as e:
-        print("ERROR: %s" % e, file=sys.stderr)
-        return 1
+        ancho, alto = (1920, 1080) if ns.formato == "horizontal" else (1080, 1920)
+    ruta = renderizar(ns.input, ns.salida, ns.ass, _cargar(ns.titulos),
+                      _cargar(ns.broll), _cargar(ns.lowerthird), ns.marca,
+                      not ns.sin_progreso, ns.zoom, not ns.sin_grade,
+                      not ns.sin_sharpen, ancho, alto, ns.crf, ns.preset,
+                      ns.formato, ns.fuente)
+    return exito(datos={"video": ruta}, meta={"formato": ns.formato},
+                 artefactos=[artefacto("video", ruta)])
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("edicion_video", _construir, _accion, sys.argv[1:],
+                        prog="renderizar_moderno",
+                        descripcion="Render moderno (vertical u horizontal)."))

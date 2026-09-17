@@ -5,13 +5,19 @@ el audio del video con ffmpeg y luego se transcribe. Con --quemar, se arma un
 proyecto .mlt con la pista de subtítulos y se renderiza.
 """
 
-import argparse
 import json
 import os
 import subprocess
 import sys
 
-import comun
+_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_SCRIPTS)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+import comun  # noqa: E402
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 MODELOS = ["tiny", "base", "small", "medium", "large"]
 
@@ -97,8 +103,7 @@ def quemar(video, srt, salida, estilo=None):
     return base
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Subtítulos automáticos con whisper-cli.")
+def _construir(ap):
     ap.add_argument("--input", "-i", required=True, help="Video de entrada")
     ap.add_argument("--modelo", "-m", default="base",
                     help="Modelo whisper (tiny/base/small/medium/large o ruta a .bin)")
@@ -109,20 +114,20 @@ def main(argv):
                     help="Además de generar el SRT, quemarlo en el video de salida")
     ap.add_argument("--salida-video", help="Video final con subtítulos (con --quemar)")
     ap.add_argument("--tamano", type=int, default=40, help="Tamaño de letra al quemar")
-    args = ap.parse_args(argv)
 
-    try:
-        srt = transcribir(args.input, args.modelo, args.idioma, args.salida, args.formato)
-        print("Subtítulos generados en %s" % srt)
-        if args.quemar:
-            estilo = {"tamano": args.tamano}
-            out = quemar(args.input, srt, args.salida_video, estilo)
-            print("Video subtitulado en %s" % out)
-        return 0
-    except Exception as e:
-        print("ERROR: %s" % e, file=sys.stderr)
-        return 1
+
+def _accion(ns):
+    srt = transcribir(ns.input, ns.modelo, ns.idioma, ns.salida, ns.formato)
+    arts = [artefacto("subtitulos", srt)]
+    datos = {"subtitulos": srt}
+    if ns.quemar:
+        out = quemar(ns.input, srt, ns.salida_video, {"tamano": ns.tamano})
+        datos["video"] = out
+        arts.append(artefacto("video", out))
+    return exito(datos=datos, artefactos=arts)
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("edicion_video", _construir, _accion, sys.argv[1:],
+                        prog="subtitulos",
+                        descripcion="Subtítulos automáticos con whisper-cli."))

@@ -1,0 +1,9 @@
+{
+  "id": "documentos",
+  "skill": "documentos.md",
+  "descripcion": "Lector de PDF adaptativo (texto, tablas, OCR, opcional Docling)",
+  "requiere": ["pymupdf"],
+  "opcional": ["rapidocr-onnxruntime", "pytesseract", "docling"],
+  "produce": ["markdown", "json", "png"],
+  "delega_en": ["literatura", "artes_diseno"]
+}

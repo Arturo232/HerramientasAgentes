@@ -4,7 +4,6 @@ Pensado para no volcar el documento completo al modelo: recibe una consulta y
 entrega los trozos mas relevantes con su numero de pagina.
 """
 
-import argparse
 import json
 import math
 import os
@@ -12,8 +11,14 @@ import re
 import sys
 from collections import Counter
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import leer_pdf
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _AQUI)
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_AQUI)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+import leer_pdf  # noqa: E402
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
 
 
 def _tokenizar(texto):
@@ -85,26 +90,19 @@ def buscar(pdf, consulta, k=5, salida_dir=None):
             for s, f in bm25(frags, consulta, k)]
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Busca fragmentos relevantes en un PDF.")
+def _construir(ap):
     ap.add_argument("--input", "-i", required=True, help="PDF")
     ap.add_argument("--consulta", "-q", required=True)
     ap.add_argument("--k", "-k", type=int, default=5, help="Numero de fragmentos")
-    ap.add_argument("--json", action="store_true", help="Salida en JSON")
-    args = ap.parse_args(argv)
 
-    resultados = buscar(args.input, args.consulta, args.k)
-    if args.json:
-        print(json.dumps(resultados, ensure_ascii=False, indent=1))
-    else:
-        if not resultados:
-            print("(sin coincidencias)")
-        for r in resultados:
-            print("--- pagina %s (score %s) ---" % (r["pagina"], r["score"]))
-            print(r["texto"])
-            print()
-    return 0
+
+def _accion(ns):
+    resultados = buscar(ns.input, ns.consulta, ns.k)
+    return exito(datos={"resultados": resultados, "total": len(resultados)},
+                 meta={"consulta": ns.consulta, "k": ns.k})
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("documentos", _construir, _accion, sys.argv[1:],
+                        prog="buscar_pdf",
+                        descripcion="Busca fragmentos relevantes en un PDF."))

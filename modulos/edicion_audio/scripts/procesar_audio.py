@@ -6,7 +6,6 @@ Reutiliza la detección de binarios del Departamento de Edición de Video
 música usando ducking (sidechain compression).
 """
 
-import argparse
 import json
 import os
 import sys
@@ -16,8 +15,14 @@ for _cand in ("editor-video", "edicion_video"):
     _p = os.path.join(_BASE, _cand, "scripts")
     if os.path.isdir(_p) and _p not in sys.path:
         sys.path.insert(0, _p)
+_RAIZ = os.path.dirname(_BASE)
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
 
-import comun
+import comun  # noqa: E402
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 PRESETS = {
     "natural": {"highpass": 85, "denoise": None, "eq": False,
@@ -187,10 +192,7 @@ def _opciones(args):
     return o
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(
-        prog="procesar_audio",
-        description="Departamento de Audio: mejora de voz y mezcla con música.")
+def _construir(ap):
     sub = ap.add_subparsers(dest="comando")
 
     for nombre in ("mejorar", "mezclar", "masterizar"):
@@ -209,6 +211,7 @@ def main(argv):
             p.add_argument("--sin-ducking", action="store_true")
             p.add_argument("--sin-procesar-voz", action="store_true",
                            help="No re-procesar la voz (si ya está mejorada)")
+        cli.agregar_flags_comunes(p)
 
     p = sub.add_parser("produccion", help="Mezcla voz + música + SFX (whoosh/hits)")
     p.add_argument("--input", "-i", required=True)
@@ -217,37 +220,36 @@ def main(argv):
     p.add_argument("--salida", "-o")
     p.add_argument("--volumen", type=float, default=0.13)
     p.add_argument("--sin-ducking", action="store_true")
+    cli.agregar_flags_comunes(p)
 
-    args = ap.parse_args(argv)
-    try:
-        if args.comando == "mejorar":
-            print("Audio mejorado en %s" % mejorar(args.input, args.salida, args.preset, _opciones(args)))
-        elif args.comando == "mezclar":
-            print("Audio mezclado en %s" % mezclar(
-                args.input, args.musica, args.salida, args.preset, _opciones(args),
-                args.volumen, not args.sin_ducking,
-                procesar_voz=not args.sin_procesar_voz))
-        elif args.comando == "masterizar":
-            if getattr(args, "musica", None):
-                print("Máster final en %s" % mezclar(
-                    args.input, args.musica, args.salida, args.preset, _opciones(args),
-                    args.volumen, not args.sin_ducking,
-                    procesar_voz=not args.sin_procesar_voz))
-            else:
-                print("Voz mejorada en %s" % mejorar(args.input, args.salida, args.preset, _opciones(args)))
-        elif args.comando == "produccion":
-            with open(args.sfx, "r", encoding="utf-8") as f:
-                sfx = json.load(f)
-            print("Producción final en %s" % mezclar_con_sfx(
-                args.input, args.musica, sfx, args.salida, args.volumen,
-                not args.sin_ducking))
+
+def _accion(ns):
+    if ns.comando == "mejorar":
+        ruta = mejorar(ns.input, ns.salida, ns.preset, _opciones(ns))
+        return exito(datos={"audio": ruta}, artefactos=[artefacto("audio", ruta)])
+    if ns.comando == "mezclar":
+        ruta = mezclar(ns.input, ns.musica, ns.salida, ns.preset, _opciones(ns),
+                       ns.volumen, not ns.sin_ducking, procesar_voz=not ns.sin_procesar_voz)
+        return exito(datos={"audio": ruta}, artefactos=[artefacto("audio", ruta)])
+    if ns.comando == "masterizar":
+        if getattr(ns, "musica", None):
+            ruta = mezclar(ns.input, ns.musica, ns.salida, ns.preset, _opciones(ns),
+                           ns.volumen, not ns.sin_ducking,
+                           procesar_voz=not ns.sin_procesar_voz)
         else:
-            ap.print_help()
-        return 0
-    except Exception as e:
-        print("ERROR: %s" % e, file=sys.stderr)
-        return 1
+            ruta = mejorar(ns.input, ns.salida, ns.preset, _opciones(ns))
+        return exito(datos={"audio": ruta}, artefactos=[artefacto("audio", ruta)])
+    if ns.comando == "produccion":
+        with open(ns.sfx, "r", encoding="utf-8") as f:
+            sfx = json.load(f)
+        ruta = mezclar_con_sfx(ns.input, ns.musica, sfx, ns.salida, ns.volumen,
+                               not ns.sin_ducking)
+        return exito(datos={"audio": ruta}, artefactos=[artefacto("audio", ruta)])
+    return exito(datos={"uso": "subcomandos: mejorar | mezclar | masterizar | produccion"})
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr(
+        "edicion_audio", _construir, _accion, sys.argv[1:],
+        prog="procesar_audio",
+        descripcion="Departamento de Audio: mejora de voz y mezcla con música."))

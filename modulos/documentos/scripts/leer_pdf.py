@@ -11,13 +11,21 @@ Genera Markdown estructurado + JSON con metadatos, secciones, tablas y figuras,
 pensado para que el modelo de IA lea poco y bien (menos tokens).
 """
 
-import argparse
 import hashlib
 import json
 import os
 import re
 import statistics
 import sys
+
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_AQUI)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.errores import AgenteError  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 UMBRAL_TEXTO_POR_PAGINA = 40
 
@@ -295,8 +303,7 @@ def leer(entrada, salida_dir=None, ocr="auto", idioma="spa", extraer_imgs=True,
     return {"markdown": ruta_md, "json": ruta_json, "info": info}
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Lee cualquier PDF (texto, tablas, escaneado).")
+def _construir(ap):
     ap.add_argument("--input", "-i", required=True, help="Archivo PDF")
     ap.add_argument("--salida", "-o", help="Carpeta de salida (por defecto, junto al PDF)")
     ap.add_argument("--ocr", choices=["auto", "si", "no"], default="auto",
@@ -309,26 +316,26 @@ def main(argv):
     ap.add_argument("--forzar", action="store_true", help="Ignorar la cache y reprocesar")
     ap.add_argument("--motor", choices=["auto", "docling"], default="auto",
                     help="auto = PyMuPDF/OCR adaptativo; docling = PDFs complejos (requiere docling)")
-    args = ap.parse_args(argv)
 
-    if not os.path.exists(args.input):
-        print("ERROR: no existe %s" % args.input, file=sys.stderr)
-        return 1
-    try:
-        res = leer(args.input, args.salida, args.ocr, args.idioma,
-                   not args.sin_imagenes, args.umbral, args.paginas, args.forzar,
-                   args.motor)
-    except Exception as e:
-        print("ERROR: %s" % e, file=sys.stderr)
-        return 1
+
+def _accion(ns):
+    if not os.path.exists(ns.input):
+        raise AgenteError("documentos", "noExiste", "No existe %s" % ns.input)
+    res = leer(ns.input, ns.salida, ns.ocr, ns.idioma,
+               not ns.sin_imagenes, ns.umbral, ns.paginas, ns.forzar, ns.motor)
     info = res["info"]
-    if res.get("cache"):
-        print("Cache: reutilizando extraccion previa")
-    print("Markdown: %s" % res["markdown"])
-    print("JSON:     %s" % res["json"])
-    print("Paginas:  %d | Motores: %s" % (info["paginas_procesadas"], info["motores_usados"]))
-    return 0
+    meta = {"paginas": info["paginas_procesadas"], "motores": info["motores_usados"],
+            "cache": bool(res.get("cache"))}
+    return exito(
+        datos={"markdown": res["markdown"], "json": res["json"],
+               "paginas": info["paginas_procesadas"], "motores": info["motores_usados"]},
+        meta=meta,
+        artefactos=[artefacto("markdown", res["markdown"]),
+                    artefacto("json", res["json"])],
+    )
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("documentos", _construir, _accion, sys.argv[1:],
+                        prog="leer_pdf",
+                        descripcion="Lee cualquier PDF (texto, tablas, escaneado)."))

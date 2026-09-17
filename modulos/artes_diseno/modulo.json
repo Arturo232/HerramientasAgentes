@@ -1,0 +1,9 @@
+{
+  "id": "artes_diseno",
+  "skill": "director_creativo.md",
+  "descripcion": "Director creativo: infografías HTML→PDF y plantillas PPTX",
+  "requiere": ["playwright", "python-pptx"],
+  "opcional": ["libreoffice"],
+  "produce": ["pdf", "pptx", "png"],
+  "delega_en": ["documentos", "navegacion_web"]
+}

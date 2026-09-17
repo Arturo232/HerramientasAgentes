@@ -7,13 +7,21 @@ Uso:
     generar_documento_apa.py --plantilla
 """
 
-import argparse
 import os
 import re
 import shutil
 import subprocess
 import sys
 from datetime import date
+
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_AQUI)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.errores import AgenteError  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 import mistune
 from docx import Document
@@ -358,10 +366,7 @@ def build_plantilla():
     return doc
 
 
-def main():
-    ap = argparse.ArgumentParser(
-        description="Compila un borrador Markdown a un documento APA 7 (.docx / .pdf)."
-    )
+def _construir(ap):
     ap.add_argument("borrador", nargs="?", help="Ruta al archivo borrador.md (o usa --input)")
     ap.add_argument("--input", default=None, help="Ruta al archivo borrador.md (alternativa al posicional)")
     ap.add_argument("--output", default=None, help="Ruta del .docx de salida (por defecto, junto al borrador)")
@@ -369,25 +374,27 @@ def main():
     ap.add_argument("--estimar", action="store_true", help="Cuenta palabras y estima páginas")
     ap.add_argument("--salida", default=None, help="Carpeta de salida (por defecto, junto al borrador)")
     ap.add_argument("--plantilla", action="store_true", help="Regenera plantillas/apa_base.docx")
-    args = ap.parse_args()
 
-    if args.plantilla:
+
+def _accion(ns):
+    if ns.plantilla:
         path = os.path.join(BASE, "plantillas", "apa_base.docx")
         build_plantilla().save(path)
-        print(f"Plantilla generada: {path}")
-        return
+        return exito(datos={"plantilla": path}, artefactos=[artefacto("docx", path)])
 
-    borrador = args.input or args.borrador
+    borrador = ns.input or ns.borrador
     if not borrador:
-        ap.error("Debes indicar el archivo borrador.md (posicional o --input) o usar --plantilla")
+        raise AgenteError("literatura", "sinBorrador",
+                          "Debes indicar el archivo borrador.md (posicional o --input) o usar --plantilla")
+    if not os.path.exists(borrador):
+        raise AgenteError("literatura", "noExiste", "No existe el borrador: %s" % borrador)
 
     with open(borrador, encoding="utf-8") as f:
         text = f.read()
 
-    if args.estimar:
+    if ns.estimar:
         n, pag = estimar(text)
-        print(f"Palabras: {n} | Estimación: ~{pag:.1f} páginas (250 palabras/página)")
-        return
+        return exito(datos={"palabras": n, "paginas_estimadas": round(pag, 1)})
 
     meta, body = parse_front_matter(text)
     md = mistune.create_markdown(renderer=None, plugins=["table"])
@@ -398,30 +405,39 @@ def main():
     add_cover(doc, meta)
     add_body(doc, meta, tokens)
 
-    if args.output:
-        out_docx = args.output
+    if ns.output:
+        out_docx = ns.output
         if not out_docx.lower().endswith(".docx"):
             out_docx += ".docx"
         src_dir = os.path.dirname(os.path.abspath(out_docx))
         base = os.path.splitext(os.path.basename(out_docx))[0]
     else:
-        src_dir = args.salida or os.path.dirname(os.path.abspath(borrador))
+        src_dir = ns.salida or os.path.dirname(os.path.abspath(borrador))
         base = os.path.splitext(os.path.basename(borrador))[0]
         out_docx = os.path.join(src_dir, base + ".docx")
     os.makedirs(src_dir, exist_ok=True)
     doc.save(out_docx)
-    print(f"DOCX generado: {out_docx}")
 
-    if args.pdf:
+    arts = [artefacto("docx", out_docx)]
+    datos = {"docx": out_docx}
+    if ns.pdf:
         soffice = shutil.which("soffice") or shutil.which("libreoffice")
         if not soffice:
-            sys.exit("LibreOffice no encontrado; no se pudo generar el PDF.")
+            raise AgenteError("literatura", "sinLibreOffice",
+                              "LibreOffice no encontrado; no se pudo generar el PDF.")
         subprocess.run(
             [soffice, "--headless", "--convert-to", "pdf", "--outdir", src_dir, out_docx],
             check=True,
         )
-        print(f"PDF generado: {os.path.join(src_dir, base + '.pdf')}")
+        pdf = os.path.join(src_dir, base + ".pdf")
+        datos["pdf"] = pdf
+        arts.append(artefacto("pdf", pdf))
+
+    return exito(datos=datos, meta={"titulo": meta.get("titulo", "")}, artefactos=arts)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli.correr(
+        "literatura", _construir, _accion, sys.argv[1:],
+        prog="generar_documento_apa",
+        descripcion="Compila un borrador Markdown a un documento APA 7 (.docx / .pdf)."))

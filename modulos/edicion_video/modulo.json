@@ -1,0 +1,9 @@
+{
+  "id": "edicion_video",
+  "skill": "editor_video.md",
+  "descripcion": "Edición de video con Shotcut/MLT + ffmpeg (cortes, transiciones, subtítulos, render moderno)",
+  "requiere": ["ffmpeg", "melt"],
+  "opcional": ["whisper-cli"],
+  "produce": ["video", "audio", "subtitulos", "mlt"],
+  "delega_en": ["edicion_audio"]
+}

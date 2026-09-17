@@ -19,13 +19,20 @@ usuario inicie sesion manualmente y presione Enter en la terminal.
 Con --perfil se reutiliza una sesion persistente (cookies/login).
 """
 
-import argparse
 import os
 import re
 import shutil
 import sys
 
 from playwright.sync_api import sync_playwright
+
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_AQUI)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 NAVEGADORES = [
     "/usr/bin/chromium",
@@ -53,8 +60,7 @@ def nombre_base(url):
     return limpio[:60]
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Abre una pagina web y extrae su contenido.")
+def _construir(ap):
     ap.add_argument("--input", required=True, help="URL de la pagina")
     ap.add_argument("--modo", choices=["texto", "html", "captura"], default="texto")
     ap.add_argument("--salida", default=".", help="Carpeta de salida (default: .)")
@@ -65,19 +71,20 @@ def main():
     ap.add_argument("--esperar-selector", help="Esperar a que aparezca un selector CSS")
     ap.add_argument("--tiempo-espera", type=int, default=2000,
                     help="ms adicionales de espera tras cargar (default: 2000)")
-    args = ap.parse_args()
 
-    os.makedirs(args.salida, exist_ok=True)
-    base = nombre_base(args.input)
-    extension = {"texto": "txt", "html": "html", "captura": "png"}[args.modo]
-    salida = os.path.join(args.salida, f"{base}.{extension}")
-    visible = args.visible or args.esperar_login
+
+def _accion(ns):
+    os.makedirs(ns.salida, exist_ok=True)
+    base = nombre_base(ns.input)
+    extension = {"texto": "txt", "html": "html", "captura": "png"}[ns.modo]
+    salida = os.path.join(ns.salida, f"{base}.{extension}")
+    visible = ns.visible or ns.esperar_login
 
     with sync_playwright() as p:
         navegador = buscar_navegador()
-        if args.perfil:
+        if ns.perfil:
             ctx = p.chromium.launch_persistent_context(
-                args.perfil, headless=not visible, executable_path=navegador)
+                ns.perfil, headless=not visible, executable_path=navegador)
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
             cerrar = ctx.close
         elif navegador:
@@ -85,29 +92,28 @@ def main():
             page = browser.new_page()
             cerrar = browser.close
         else:
-            print("Chromium del sistema no encontrado; usando el navegador de Playwright.")
             browser = p.chromium.launch(headless=not visible)
             page = browser.new_page()
             cerrar = browser.close
 
-        page.goto(args.input, wait_until="domcontentloaded")
-        if args.esperar_selector:
+        page.goto(ns.input, wait_until="domcontentloaded")
+        if ns.esperar_selector:
             try:
-                page.wait_for_selector(args.esperar_selector, timeout=30000)
+                page.wait_for_selector(ns.esperar_selector, timeout=30000)
             except Exception:
                 pass
 
-        if args.esperar_login:
-            print(f"Navegador abierto en {args.input}. Inicia sesion y presiona Enter aqui...")
+        if ns.esperar_login:
+            print(f"Navegador abierto en {ns.input}. Inicia sesion y presiona Enter aqui...")
             input("> Enter para continuar: ")
 
-        page.wait_for_timeout(args.tiempo_espera)
+        page.wait_for_timeout(ns.tiempo_espera)
 
-        if args.modo == "texto":
+        if ns.modo == "texto":
             contenido = page.evaluate("document.body.innerText")
             with open(salida, "w", encoding="utf-8") as f:
                 f.write(contenido)
-        elif args.modo == "html":
+        elif ns.modo == "html":
             contenido = page.evaluate("document.documentElement.outerHTML")
             with open(salida, "w", encoding="utf-8") as f:
                 f.write(contenido)
@@ -116,8 +122,14 @@ def main():
 
         cerrar()
 
-    print(f"Guardado: {salida}")
+    return exito(
+        datos={"archivo": salida, "modo": ns.modo, "url": ns.input},
+        meta={"via": "playwright", "modulo": "navegacion_web"},
+        artefactos=[artefacto(ns.modo, salida)],
+    )
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli.correr("navegacion_web", _construir, _accion, sys.argv[1:],
+                        prog="abrir_pagina",
+                        descripcion="Abre una pagina web y extrae su contenido."))

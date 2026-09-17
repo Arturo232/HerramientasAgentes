@@ -4,6 +4,15 @@ Backend académico automatizado para la elaboración de trabajos universitarios:
 
 El sistema se organiza alrededor de un **Orquestador Maestro** ("Decano") que recibe la petición del usuario y la delega al módulo especializado correspondiente.
 
+## Documentación de arquitectura y plan
+
+| Documento | Contenido |
+|---|---|
+| [`INVESTIGACION.md`](INVESTIGACION.md) | Estado actual: repos, inventario de módulos, deriva local vs repo y hallazgos |
+| [`ARQUITECTURA_OBJETIVO.md`](ARQUITECTURA_OBJETIVO.md) | Diseño de destino: capas, contrato, CLI ABI, errores y accesibilidad para IA |
+| [`PLAN_MIGRACION.md`](PLAN_MIGRACION.md) | Ruta por fases (0–5) con criterios de aceptación para llegar al objetivo |
+| [`ESTADO_IMPLEMENTACION.md`](ESTADO_IMPLEMENTACION.md) | Qué ya se ejecutó, cómo verificarlo y qué falta |
+
 ## El Orquestador Maestro
 
 El usuario solo interactúa con el Orquestador (skill `orquestador-maestro`). Este analiza la petición y enruta al módulo adecuado:

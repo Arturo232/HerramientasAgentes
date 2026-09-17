@@ -4,16 +4,22 @@ Genera un indice (encabezados) y un resumen extractivo por frecuencia de
 terminos, para que el modelo reciba una version corta y de alta senal.
 """
 
-import argparse
 import json
 import os
 import re
 import sys
 from collections import Counter
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import buscar_pdf
-import leer_pdf
+_AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _AQUI)
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(_AQUI)))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+import buscar_pdf  # noqa: E402
+import leer_pdf  # noqa: E402
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 STOPWORDS = set("""a al algo algunas algunos ante antes como con contra cual cuando de del desde donde
 dos el ella ellas ellos en entre era erais eran eras eres es esa esas ese eso esos esta estaba estado
@@ -65,22 +71,23 @@ def resumir(pdf, max_oraciones=12, salida_dir=None):
     }
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Resumen extractivo local de un PDF.")
+def _construir(ap):
     ap.add_argument("--input", "-i", required=True)
     ap.add_argument("--max", type=int, default=12, help="Maximo de ideas")
     ap.add_argument("--salida", "-o", help="Archivo .md de salida")
-    args = ap.parse_args(argv)
 
-    res = resumir(args.input, args.max)
-    if args.salida:
-        with open(args.salida, "w", encoding="utf-8") as f:
+
+def _accion(ns):
+    res = resumir(ns.input, ns.max)
+    arts = []
+    if ns.salida:
+        with open(ns.salida, "w", encoding="utf-8") as f:
             f.write(res["markdown"])
-        print("Resumen en %s" % os.path.abspath(args.salida))
-    else:
-        print(res["markdown"])
-    return 0
+        arts.append(artefacto("markdown", ns.salida))
+    return exito(datos=res, artefactos=arts)
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("documentos", _construir, _accion, sys.argv[1:],
+                        prog="resumir_pdf",
+                        descripcion="Resumen extractivo local de un PDF."))

@@ -22,3 +22,11 @@ modulos/edicion_audio/models/
 **/storage_state.json
 **/cookies*.json
 **/navegacion/sesiones.jsonl
+
+# Empaquetado y caches
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage

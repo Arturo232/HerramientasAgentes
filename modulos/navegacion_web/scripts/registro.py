@@ -5,11 +5,16 @@
   compartir el aprendizaje. La ruta se puede cambiar con HERRAMIENTAS_RECETAS.
 """
 
-import argparse
 import datetime
 import json
 import os
 import sys
+
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
 
 LOCAL = os.path.join(os.path.expanduser("~"), ".config", "opencode", "navegacion")
 PLATAFORMAS = os.path.join(LOCAL, "plataformas.json")
@@ -92,8 +97,7 @@ def buscar_receta(consulta):
     return hallazgos
 
 
-def main(argv):
-    ap = argparse.ArgumentParser(description="Memoria del modulo de navegacion web.")
+def _construir(ap):
     sub = ap.add_subparsers(dest="comando")
 
     p = sub.add_parser("plataforma", help="Registrar/actualizar una plataforma")
@@ -102,6 +106,7 @@ def main(argv):
     p.add_argument("--login", default="")
     p.add_argument("--via", default="")
     p.add_argument("--notas", default="")
+    cli.agregar_flags_comunes(p)
 
     p = sub.add_parser("sesion", help="Registrar una sesion de navegacion")
     p.add_argument("--url", required=True)
@@ -109,50 +114,56 @@ def main(argv):
     p.add_argument("--via", required=True)
     p.add_argument("--resultado", default="ok")
     p.add_argument("--notas", default="")
+    cli.agregar_flags_comunes(p)
 
     p = sub.add_parser("listar", help="Listar plataformas, sesiones o recetas")
     p.add_argument("que", choices=["plataformas", "sesiones", "recetas"])
     p.add_argument("--n", type=int, default=20)
+    cli.agregar_flags_comunes(p)
 
     p = sub.add_parser("receta", help="Guardar una receta desde un archivo .py")
     p.add_argument("--archivo", required=True, help="Script .py a guardar")
     p.add_argument("--nombre", required=True)
     p.add_argument("--descripcion", required=True)
     p.add_argument("--palabras-clave", default="")
+    cli.agregar_flags_comunes(p)
 
     p = sub.add_parser("buscar-receta", help="Buscar recetas por palabra clave")
     p.add_argument("--consulta", "-q", required=True)
+    cli.agregar_flags_comunes(p)
 
-    args = ap.parse_args(argv)
 
-    if args.comando == "plataforma":
-        reg = registrar_plataforma(args.nombre, args.url, args.login, args.via, args.notas)
-        print("Plataforma registrada: %s -> %s" % (args.nombre, reg))
-    elif args.comando == "sesion":
-        print("Sesion registrada: %s" % registrar_sesion(
-            args.url, args.accion, args.via, args.resultado, args.notas))
-    elif args.comando == "listar":
-        if args.que == "plataformas":
-            print(json.dumps(_leer_json(PLATAFORMAS, {}), ensure_ascii=False, indent=1))
-        elif args.que == "recetas":
-            print(json.dumps(listar_recetas(), ensure_ascii=False, indent=1))
-        else:
-            lineas = []
-            if os.path.exists(SESIONES):
-                with open(SESIONES, "r", encoding="utf-8") as f:
-                    lineas = f.readlines()[-args.n:]
-            print("".join(lineas), end="")
-    elif args.comando == "receta":
-        with open(args.archivo, "r", encoding="utf-8") as f:
+def _accion(ns):
+    if ns.comando == "plataforma":
+        reg = registrar_plataforma(ns.nombre, ns.url, ns.login, ns.via, ns.notas)
+        return exito(datos={"plataforma": ns.nombre, "registro": reg})
+    if ns.comando == "sesion":
+        return exito(datos=registrar_sesion(
+            ns.url, ns.accion, ns.via, ns.resultado, ns.notas))
+    if ns.comando == "listar":
+        if ns.que == "plataformas":
+            return exito(datos=_leer_json(PLATAFORMAS, {}))
+        if ns.que == "recetas":
+            return exito(datos=listar_recetas())
+        sesiones = []
+        if os.path.exists(SESIONES):
+            with open(SESIONES, "r", encoding="utf-8") as f:
+                for linea in f.readlines()[-ns.n:]:
+                    if linea.strip():
+                        sesiones.append(json.loads(linea))
+        return exito(datos={"sesiones": sesiones})
+    if ns.comando == "receta":
+        with open(ns.archivo, "r", encoding="utf-8") as f:
             codigo = f.read()
-        claves = [k.strip() for k in args.palabras_clave.split(",") if k.strip()]
-        print("Receta guardada: %s" % guardar_receta(args.nombre, args.descripcion, codigo, claves))
-    elif args.comando == "buscar-receta":
-        print(json.dumps(buscar_receta(args.consulta), ensure_ascii=False, indent=1))
-    else:
-        ap.print_help()
-    return 0
+        claves = [k.strip() for k in ns.palabras_clave.split(",") if k.strip()]
+        ruta = guardar_receta(ns.nombre, ns.descripcion, codigo, claves)
+        return exito(datos={"receta": ruta})
+    if ns.comando == "buscar-receta":
+        return exito(datos=buscar_receta(ns.consulta))
+    return exito(datos={"uso": "subcomandos: plataforma | sesion | listar | receta | buscar-receta"})
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(cli.correr("navegacion_web", _construir, _accion, sys.argv[1:],
+                        prog="registro",
+                        descripcion="Memoria del modulo de navegacion web."))

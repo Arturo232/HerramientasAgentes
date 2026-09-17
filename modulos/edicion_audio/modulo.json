@@ -1,0 +1,8 @@
+{
+  "id": "edicion_audio",
+  "skill": "editor_audio.md",
+  "descripcion": "Mejora de voz, mezcla con música y masterización (ffmpeg)",
+  "requiere": ["ffmpeg"],
+  "produce": ["audio"],
+  "delega_en": ["edicion_video"]
+}

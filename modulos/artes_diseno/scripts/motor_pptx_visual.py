@@ -7,7 +7,6 @@ Uso:
     motor_pptx_visual.py --plantilla base.pptx --input datos.json --salida salida.pptx --no-pdf
 """
 
-import argparse
 import json
 import os
 import re
@@ -17,6 +16,14 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+
+_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+if _RAIZ not in sys.path:
+    sys.path.insert(0, _RAIZ)
+from nucleo import cli  # noqa: E402
+from nucleo.contrato import exito  # noqa: E402
+from nucleo.errores import AgenteError  # noqa: E402
+from nucleo.registro import artefacto  # noqa: E402
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -140,53 +147,61 @@ def etiquetas_pendientes(presentacion):
     return pendientes
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Reemplaza etiquetas {{LLAVE}} en una plantilla PPTX.")
+def _construir(ap):
     ap.add_argument("--plantilla", required=True, help="Ruta a la plantilla .pptx base")
     ap.add_argument("--input", default="datos_diseno.json", help="Ruta al JSON de etiquetas")
     ap.add_argument("--salida", default="diseno_generado.pptx", help="Ruta del .pptx de salida")
     ap.add_argument("--no-pdf", action="store_true", help="No convertir el resultado a PDF")
-    args = ap.parse_args()
 
-    with open(args.input, encoding="utf-8") as f:
+
+def _accion(ns):
+    with open(ns.input, encoding="utf-8") as f:
         mapeo = json.load(f)
     if not isinstance(mapeo, dict):
-        sys.exit("El JSON debe ser un objeto con pares etiqueta: texto.")
+        raise AgenteError("artes_diseno", "jsonInvalido",
+                          "El JSON debe ser un objeto con pares etiqueta: texto.")
 
-    presentacion = Presentation(args.plantilla)
+    presentacion = Presentation(ns.plantilla)
     encontradas = set()
     for slide in presentacion.slides:
         reemplazar_shapes(slide.shapes, mapeo, encontradas)
         if slide.has_notes_slide:
             reemplazar_text_frame(slide.notes_slide.notes_text_frame, mapeo, encontradas)
 
-    if not args.salida.lower().endswith(".pptx"):
-        args.salida += ".pptx"
-    os.makedirs(os.path.dirname(os.path.abspath(args.salida)), exist_ok=True)
-    presentacion.save(args.salida)
-    print(f"PPTX generado: {args.salida}")
+    salida = ns.salida
+    if not salida.lower().endswith(".pptx"):
+        salida += ".pptx"
+    os.makedirs(os.path.dirname(os.path.abspath(salida)), exist_ok=True)
+    presentacion.save(salida)
 
+    advertencias = list(ADVERTENCIAS)
     no_usadas = sorted(k for k in mapeo if k not in encontradas)
     if no_usadas:
-        print(f"Advertencia: etiquetas del JSON no encontradas en la plantilla: {', '.join(no_usadas)}")
-    for advertencia in ADVERTENCIAS:
-        print(f"Advertencia: {advertencia}")
+        advertencias.append("etiquetas del JSON no encontradas: %s" % ", ".join(no_usadas))
     restantes = etiquetas_pendientes(presentacion)
     if restantes:
-        print(f"Advertencia: etiquetas sin reemplazo en la plantilla: {', '.join(sorted(restantes))}")
+        advertencias.append("etiquetas sin reemplazo: %s" % ", ".join(sorted(restantes)))
 
-    if not args.no_pdf:
+    arts = [artefacto("pptx", salida)]
+    datos = {"pptx": salida, "advertencias": advertencias}
+    if not ns.no_pdf:
         soffice = shutil.which("soffice") or shutil.which("libreoffice")
         if not soffice:
-            sys.exit("LibreOffice no encontrado; no se pudo generar el PDF.")
-        out_dir = os.path.dirname(os.path.abspath(args.salida))
+            raise AgenteError("artes_diseno", "sinLibreOffice",
+                              "LibreOffice no encontrado; no se pudo generar el PDF.")
+        out_dir = os.path.dirname(os.path.abspath(salida))
         subprocess.run(
-            [soffice, "--headless", "--convert-to", "pdf", "--outdir", out_dir, args.salida],
+            [soffice, "--headless", "--convert-to", "pdf", "--outdir", out_dir, salida],
             check=True,
         )
-        base = os.path.splitext(os.path.basename(args.salida))[0]
-        print(f"PDF generado: {os.path.join(out_dir, base + '.pdf')}")
+        pdf = os.path.join(out_dir, os.path.splitext(os.path.basename(salida))[0] + ".pdf")
+        datos["pdf"] = pdf
+        arts.append(artefacto("pdf", pdf))
+
+    return exito(datos=datos, meta={"plantilla": ns.plantilla}, artefactos=arts)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli.correr("artes_diseno", _construir, _accion, sys.argv[1:],
+                        prog="motor_pptx_visual",
+                        descripcion="Reemplaza etiquetas {{LLAVE}} en una plantilla PPTX."))

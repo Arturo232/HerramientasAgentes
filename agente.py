@@ -39,6 +39,9 @@ def _lista(argv):
     print("  %-18s %s" % ("ayuda <cmd>", "Muestra ayuda/esquema de un comando"))
     print("  %-18s %s" % ("run <flujo.json>", "Ejecuta un pipeline declarativo"))
     print("  %-18s %s" % ("repl", "Abre la consola interactiva (agente>)"))
+    print("  %-18s %s" % ("nuevo <id>", "Crea y registra un script nuevo"))
+    print("  %-18s %s" % ("integrar <archivo>", "Integra un script existente"))
+    print("  %-18s %s" % ("quitar <id>", "Quita un comando del catálogo"))
     print("\nEjemplo: python agente.py pdf --input documento.pdf")
     return 0
 
@@ -84,6 +87,15 @@ def main(argv=None):
     if primero == "run":
         from interfaces import flujo
         return flujo.main(argv[1:])
+    if primero in ("nuevo", "crear"):
+        from interfaces import nuevo as _nuevo
+        return _nuevo.cmd_nuevo(argv[1:])
+    if primero in ("integrar", "agregar", "add"):
+        from interfaces import nuevo as _nuevo
+        return _nuevo.cmd_integrar(argv[1:])
+    if primero in ("quitar", "eliminar", "rm"):
+        from interfaces import nuevo as _nuevo
+        return _nuevo.cmd_quitar(argv[1:])
 
     entrada = config.buscar(primero)
     if not entrada:

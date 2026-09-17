@@ -86,6 +86,13 @@ adaptados al contrato:
 - Ventaja: la IA llama herramientas nativas (sin subproceso manual ni parseo),
   y añadir un módulo en `capacidades.json` lo publica también por MCP.
 
+### Alta de scripts nuevos (extensible)
+- `nucleo/catalogo.py`: alta/baja de comandos en `capacidades.json`.
+- `interfaces/nuevo.py` y comandos `agente nuevo | integrar | quitar`:
+  un script nuevo se guarda en el repo y se registra en el catálogo → aparece en
+  CLI, ayuda, REPL y MCP (tras reiniciar) automáticamente.
+- Guía: `docs/COMO_AGREGAR_SCRIPTS.md`.
+
 ### Sincronizador completo
 `sincronizar_skills.py` ahora copia también `playbooks/`, `recetas/`, `config.json`
 y docs del módulo. La carpeta `~/.config/opencode/skills` es **generada** y se puede

@@ -12,6 +12,7 @@ El sistema se organiza alrededor de un **Orquestador Maestro** ("Decano") que re
 | [`ARQUITECTURA_OBJETIVO.md`](ARQUITECTURA_OBJETIVO.md) | Diseño de destino: capas, contrato, CLI ABI, errores y accesibilidad para IA |
 | [`PLAN_MIGRACION.md`](PLAN_MIGRACION.md) | Ruta por fases (0–5) con criterios de aceptación para llegar al objetivo |
 | [`ESTADO_IMPLEMENTACION.md`](ESTADO_IMPLEMENTACION.md) | Qué ya se ejecutó, cómo verificarlo y qué falta |
+| [`COMO_AGREGAR_SCRIPTS.md`](COMO_AGREGAR_SCRIPTS.md) | Cómo convertir un script nuevo en programa del sistema |
 
 ## El Orquestador Maestro
 

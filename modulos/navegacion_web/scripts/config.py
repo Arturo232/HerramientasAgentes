@@ -55,7 +55,12 @@ def drive_materia(nombre):
 
 
 def ruta(nombre):
-    r = get("rutas", nombre, defecto="")
+    # En Windows se prefieren las rutas nativas; en Linux/Mac, las "rutas".
+    r = None
+    if os.name == "nt":
+        r = get("rutas_windows", nombre, defecto=None)
+    if r is None:
+        r = get("rutas", nombre, defecto="")
     return os.path.expanduser(r)
 
 

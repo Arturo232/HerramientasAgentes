@@ -31,6 +31,11 @@
     }
   },
   "rutas": {
+    "actividades": "~/Documentos/actividades",
+    "perfil_chrome": "~/.config/opencode/chrome-canva",
+    "memoria_local": "~/.config/opencode/navegacion"
+  },
+  "rutas_windows": {
     "actividades": "C:\\Users\\ARTURO ANDRES\\Documents\\actividades de la unicartagena",
     "perfil_chrome": "C:\\Users\\ARTURO ANDRES\\.config\\opencode\\chrome-flipux",
     "memoria_local": "~/.config/opencode/navegacion"

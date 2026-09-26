@@ -71,7 +71,9 @@ python scripts/google_api.py eliminar --file FILE_ID                        # a 
 
 # Sesión controlada por CDP (Chrome visible, perfil aislado, puerto 9333)
 python scripts/sesion_cdp.py abrir URL
-python scripts/sesion_cdp.py paginas | texto | html | captura out.png | ir URL | click SEL | evaluar "@x.js"
+python scripts/sesion_cdp.py paginas | texto | html | captura out.png | ir URL | nueva [URL] | click SEL | evaluar "@x.js"
+# Chrome/Chromium se autodetecta (Linux: google-chrome-stable, chromium; Windows: chrome.exe, msedge.exe).
+# Perfil persistente por defecto: ~/.config/opencode/chrome-moodle (cookies/sesion fuera de git).
 
 # Inventario de un curso Moodle (actividades, tipo H5P, estado)
 python scripts/inventario_moodle.py --curso 444 --pendientes --salida inventario.json

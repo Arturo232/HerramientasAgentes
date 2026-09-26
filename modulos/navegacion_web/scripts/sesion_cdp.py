@@ -12,6 +12,7 @@ Uso:
     python sesion_cdp.py html [indice]
     python sesion_cdp.py captura salida.png [indice]
     python sesion_cdp.py ir https://sitio [indice]
+    python sesion_cdp.py nueva [URL]
     python sesion_cdp.py click "selector" [indice]
     python sesion_cdp.py escribir "selector" "texto" [indice]
     python sesion_cdp.py esperar "selector" [ms]
@@ -47,9 +48,27 @@ from nucleo.contrato import exito  # noqa: E402
 from nucleo.errores import AgenteError  # noqa: E402
 from nucleo.registro import artefacto  # noqa: E402
 
-CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+CHROMES = [
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/brave-browser",
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+]
 DEFAULT_PROFILE = os.path.join(os.path.expanduser("~"), ".config", "opencode", "chrome-moodle")
 DEFAULT_PORT = 9333
+
+
+def buscar_chrome():
+    import shutil
+    for ruta in CHROMES:
+        if os.path.isfile(ruta) or shutil.which(ruta):
+            return ruta
+    return None
 
 
 def cdp_vivo(port):
@@ -63,11 +82,19 @@ def cdp_vivo(port):
 def lanzar(url, port, perfil):
     if cdp_vivo(port):
         return
+    chrome = buscar_chrome()
+    if not chrome:
+        raise AgenteError("navegacion_web", "sinChrome",
+                          "No se encontro Chrome/Chromium en el sistema.")
     os.makedirs(perfil, exist_ok=True)
-    args = [CHROME, "--remote-debugging-port=%d" % port, "--user-data-dir=%s" % perfil,
+    args = [chrome, "--remote-debugging-port=%d" % port, "--user-data-dir=%s" % perfil,
             "--no-first-run", "--no-default-browser-check", "--disable-features=Translate",
-            "--start-maximized", url]
-    subprocess.Popen(args)
+            "--disable-dev-shm-usage", "--start-maximized", url]
+    # Desacoplar del pipe: si el navegador hereda stdout, el comando (y el MCP)
+    # quedan colgados esperando a que el navegador cierre.
+    subprocess.Popen(args, stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     start_new_session=True)
     for _ in range(30):
         time.sleep(0.5)
         if cdp_vivo(port):
@@ -136,6 +163,12 @@ def _accion(ns):
             pg = pag_activa(ctx, int(rest[1]) if len(rest) > 1 else 0)
             pg.goto(rest[0], wait_until="domcontentloaded", timeout=45000)
             pg.wait_for_timeout(1200)
+            return exito(datos={"url": pg.url, "titulo": pg.title()})
+        if cmd == "nueva":
+            pg = ctx.new_page()
+            if rest:
+                pg.goto(rest[0], wait_until="domcontentloaded", timeout=45000)
+                pg.wait_for_timeout(1200)
             return exito(datos={"url": pg.url, "titulo": pg.title()})
         if cmd == "click":
             pg = pag_activa(ctx, int(rest[1]) if len(rest) > 1 else 0)

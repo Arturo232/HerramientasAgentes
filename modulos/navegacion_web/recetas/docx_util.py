@@ -262,17 +262,32 @@ def rellenar(plantilla, salida, encabezado, secciones, titulo="Protocolo individ
 
 
 def exportar_pdf(docx_path, pdf_path=None):
-    """Exporta a PDF usando Microsoft Word (COM via PowerShell, sin dependencias)."""
+    """Exporta a PDF: Word COM en Windows; LibreOffice headless en Linux/Mac."""
+    import shutil
     import subprocess
     pdf_path = pdf_path or os.path.splitext(docx_path)[0] + ".pdf"
-    ps = (
-        "$ErrorActionPreference='Stop'; "
-        "$w = New-Object -ComObject Word.Application; $w.Visible = $false; "
-        "try { $d = $w.Documents.Open('%s', $false, $true); "
-        "$d.SaveAs([ref]'%s', [ref]17); $d.Close($false) } finally { $w.Quit() }"
-        % (docx_path, pdf_path)
-    )
-    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True)
+    if os.name == "nt":
+        ps = (
+            "$ErrorActionPreference='Stop'; "
+            "$w = New-Object -ComObject Word.Application; $w.Visible = $false; "
+            "try { $d = $w.Documents.Open('%s', $false, $true); "
+            "$d.SaveAs([ref]'%s', [ref]17); $d.Close($false) } finally { $w.Quit() }"
+            % (docx_path, pdf_path)
+        )
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True)
+        return pdf_path
+
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        raise RuntimeError("Se requiere LibreOffice (soffice) para exportar a PDF.")
+    outdir = os.path.dirname(os.path.abspath(pdf_path))
+    os.makedirs(outdir, exist_ok=True)
+    subprocess.run([soffice, "--headless", "--convert-to", "pdf",
+                    "--outdir", outdir, docx_path], check=True)
+    generado = os.path.join(
+        outdir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
+    if os.path.abspath(generado) != os.path.abspath(pdf_path) and os.path.exists(generado):
+        os.replace(generado, pdf_path)
     return pdf_path
 
 

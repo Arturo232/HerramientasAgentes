@@ -425,8 +425,12 @@ def _accion(ns):
         if not soffice:
             raise AgenteError("literatura", "sinLibreOffice",
                               "LibreOffice no encontrado; no se pudo generar el PDF.")
+        import tempfile
+        perfil = os.path.join(tempfile.gettempdir(), "agente_lo_profile")
         subprocess.run(
-            [soffice, "--headless", "--convert-to", "pdf", "--outdir", src_dir, out_docx],
+            [soffice, "-env:UserInstallation=file://%s" % perfil,
+             "--headless", "--norestore", "--convert-to", "pdf",
+             "--outdir", src_dir, out_docx],
             check=True,
         )
         pdf = os.path.join(src_dir, base + ".pdf")

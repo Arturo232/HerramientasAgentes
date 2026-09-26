@@ -277,12 +277,17 @@ def exportar_pdf(docx_path, pdf_path=None):
         subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=True)
         return pdf_path
 
+    import tempfile
     soffice = shutil.which("soffice") or shutil.which("libreoffice")
     if not soffice:
         raise RuntimeError("Se requiere LibreOffice (soffice) para exportar a PDF.")
     outdir = os.path.dirname(os.path.abspath(pdf_path))
     os.makedirs(outdir, exist_ok=True)
-    subprocess.run([soffice, "--headless", "--convert-to", "pdf",
+    # Perfil aislado: si hay un LibreOffice abierto, el perfil por defecto queda
+    # bloqueado y la conversion headless falla en silencio.
+    perfil = os.path.join(tempfile.gettempdir(), "agente_lo_profile")
+    subprocess.run([soffice, "-env:UserInstallation=file://%s" % perfil,
+                    "--headless", "--norestore", "--convert-to", "pdf",
                     "--outdir", outdir, docx_path], check=True)
     generado = os.path.join(
         outdir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")

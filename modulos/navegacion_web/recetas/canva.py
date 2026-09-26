@@ -112,26 +112,27 @@ def reemplazar(pg, mapa):
 
 
 def exportar(pg, formato="png", salida=None):
-    """Exporta el diseno: Compartir -> Descargar -> (formato) -> Descargar."""
+    """Exporta el diseno por el menu Archivo -> Descargar (mas estable que Compartir)."""
     traer_al_frente(pg)
     _esc(pg, 2)
-    pg.locator("button:has-text('Compartir')").first.click(timeout=20000)
-    pg.wait_for_timeout(2000)
-    pg.locator("button:has-text('Descargar'), [role=menuitem]:has-text('Descargar')").first.click(timeout=20000)
-    pg.wait_for_timeout(2500)
+    pg.locator("text=Archivo").first.click(force=True, timeout=20000)
+    pg.wait_for_timeout(1000)
+    pg.locator("text=Descargar").first.click(force=True, timeout=20000)
+    pg.wait_for_timeout(3000)
     etq = {"png": "PNG", "pdf": "PDF", "jpg": "JPG"}.get(formato.lower(), formato.upper())
-    # Si el formato no es PNG (predeterminado), abrir el selector y elegirlo
-    if formato.lower() != "png":
-        try:
-            pg.locator("button:has-text('PNG')").first.click(timeout=5000)
+    # Elegir el tipo de archivo si no esta ya seleccionado
+    try:
+        selector = pg.locator("[aria-label='Tipo de archivo']").first
+        if etq.lower() not in (selector.inner_text() or "").lower():
+            selector.click(force=True, timeout=6000)
             pg.wait_for_timeout(800)
-            pg.locator(f"[role='option']:has-text('{etq}'), li:has-text('{etq}')").first.click(timeout=5000)
+            pg.locator(f"[role='option']:has-text('{etq}'), li:has-text('{etq}')").first.click(force=True, timeout=6000)
             pg.wait_for_timeout(800)
-        except Exception:
-            pass
-    boton = pg.locator("button[type='submit']:has-text('Descargar')").last
-    with pg.expect_download(timeout=120000) as dl:
-        boton.click(timeout=20000)
+    except Exception:
+        pass
+    boton = pg.locator("button:has-text('Descargar')").last
+    with pg.expect_download(timeout=180000) as dl:
+        boton.click(force=True, timeout=20000)
     descarga = dl.value
     destino = salida or descarga.suggested_filename
     descarga.save_as(destino)

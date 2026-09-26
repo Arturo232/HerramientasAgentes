@@ -16,7 +16,7 @@ Uso:
     python sesion_cdp.py click "selector" [indice]
     python sesion_cdp.py escribir "selector" "texto" [indice]
     python sesion_cdp.py esperar "selector" [ms]
-    python sesion_cdp.py evaluar "@archivo.js" | "js"
+    python sesion_cdp.py evaluar "@archivo.js" | "js" [indice]
     python sesion_cdp.py links
     python sesion_cdp.py frames
     python sesion_cdp.py ftexto N
@@ -184,7 +184,8 @@ def _accion(ns):
             pg.wait_for_selector(rest[0], timeout=int(rest[1]) if len(rest) > 1 else 30000)
             return exito(datos={"ok": True})
         if cmd == "evaluar":
-            pg = pag_activa(ctx, 0)
+            idx = int(rest[1]) if len(rest) > 1 and rest[1].lstrip("-").isdigit() else 0
+            pg = pag_activa(ctx, idx)
             js = rest[0]
             if js.startswith("@"):
                 js = open(js[1:], encoding="utf-8").read()

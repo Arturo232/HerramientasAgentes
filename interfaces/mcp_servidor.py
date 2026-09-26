@@ -111,11 +111,35 @@ def _ejecutar(comando_id, args):
         [sys.executable, os.path.join(RAIZ, "agente.py"), comando_id, *argv, *extra],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
-    for linea in reversed(proc.stdout.strip().splitlines()):
+
+    def _normalizar(data):
+        # Los scripts del nucleo ya traen el contrato {ok, ...}; los scripts
+        # passthrough (sin_json) devuelven su propio JSON: se envuelve para que
+        # el resultado sea homogeneo y el flag isError sea correcto.
+        if "ok" in data:
+            return data
+        return {"ok": proc.returncode == 0, "datos": data,
+                "meta": {"passthrough": True},
+                "error": None if proc.returncode == 0 else {
+                    "codigo": "agente:%s:salida" % cmd.get("modulo", "mcp"),
+                    "mensaje": (proc.stderr or "exit=%s" % proc.returncode).strip()[:500]}}
+
+    salida = proc.stdout.strip()
+    # 1) JSON completo (scripts que imprimen con indentacion).
+    try:
+        data = json.loads(salida)
+        if isinstance(data, dict):
+            return _normalizar(data)
+    except Exception:
+        pass
+    # 2) ultima linea JSON valida (contrato del nucleo: una linea compacta).
+    for linea in reversed(salida.splitlines()):
         try:
-            return json.loads(linea)
+            data = json.loads(linea)
         except Exception:
             continue
+        if isinstance(data, dict):
+            return _normalizar(data)
     return {"ok": False,
             "error": {"codigo": "agente:%s:salida" % cmd.get("modulo", "mcp"),
                       "mensaje": (proc.stderr or "sin salida").strip()[:500],

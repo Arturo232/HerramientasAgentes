@@ -1,0 +1,22 @@
+{
+  "id": "navegacion_web",
+  "skill": "navegador_web.md",
+  "descripcion": "Explorador web: navegación adaptativa, login, Moodle/SIMA, Canva, Drive y documentos web",
+  "requiere": ["playwright", "requests", "google-api-python-client", "google-auth-oauthlib"],
+  "opcional": ["docling"],
+  "produce": ["texto", "html", "json", "png", "pdf", "docx"],
+  "recetas": [
+    "canva.py",
+    "completar_h5p.py",
+    "diagrama_flujo.py",
+    "docx_util.py",
+    "drive_google.py",
+    "mentefacto.py"
+  ],
+  "delega_en": ["documentos", "literatura", "artes_diseno"],
+  "memoria": {
+    "config": "modulos/navegacion_web/config.json",
+    "local": "~/.config/opencode/navegacion",
+    "nota": "sesiones, tokens y perfiles de Chrome viven fuera de git"
+  }
+}

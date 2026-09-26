@@ -1,0 +1,77 @@
+{
+ "completar_h5p.py": {
+  "descripcion": "Completa actividades H5P de Moodle leyendo las respuestas de los params",
+  "palabras_clave": [
+   "moodle",
+   "h5p",
+   "completar",
+   "automatizar"
+  ],
+  "fecha": "2026-09-14T21:28:39"
+ },
+ "docx_util.py": {
+  "descripcion": "Vinetas/numeracion REALES en DOCX, relleno de plantillas y export a PDF (Word COM)",
+  "palabras_clave": [
+   "docx",
+   "word",
+   "viñetas",
+   "plantilla",
+   "protocolo",
+   "pdf",
+   "google docs"
+  ],
+  "fecha": "2026-09-15T00:30:00"
+ },
+ "drive_google.py": {
+  "descripcion": "Sube archivos a Google Drive, convierte a Google Doc y comparte con enlace (via CDP)",
+  "palabras_clave": [
+   "drive",
+   "google docs",
+   "compartir",
+   "subir",
+   "convertir",
+   "cdp"
+  ],
+  "fecha": "2026-09-15T00:30:00"
+ },
+  "mentefacto.py": {
+   "descripcion": "Genera un mentefacto/mapa conceptual (HTML -> PDF/PNG) sin depender de Canva",
+   "palabras_clave": [
+    "mentefacto",
+    "mapa conceptual",
+    "actividad",
+    "pdf",
+    "png",
+    "playwright"
+   ],
+   "fecha": "2026-09-15T00:45:00"
+  },
+  "diagrama_flujo.py": {
+   "descripcion": "Genera un diagrama de flujo vertical (HTML -> PDF/PNG) desde JSON",
+   "palabras_clave": [
+    "diagrama de flujo",
+    "flujograma",
+    "proceso",
+    "actividad",
+    "pdf",
+    "png",
+    "playwright"
+   ],
+   "fecha": "2026-09-15T01:10:00"
+  },
+  "canva.py": {
+   "descripcion": "Automatiza Canva por CDP: buscar plantillas, crear diseno, reemplazar texto y exportar (mapas, diagramas, diapositivas)",
+   "palabras_clave": [
+    "canva",
+    "plantilla",
+    "mapa conceptual",
+    "mentefacto",
+    "diagrama",
+    "diapositivas",
+    "presentacion",
+    "exportar",
+    "cdp"
+   ],
+   "fecha": "2026-09-15T02:00:00"
+  }
+}

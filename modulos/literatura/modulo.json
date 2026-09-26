@@ -1,0 +1,9 @@
+{
+  "id": "literatura",
+  "skill": "ensayo_apa.md",
+  "descripcion": "Redactor académico APA 7 y compilador de borradores a DOCX/PDF",
+  "requiere": ["python-docx", "mistune"],
+  "opcional": ["libreoffice"],
+  "produce": ["docx", "pdf"],
+  "delega_en": ["documentos"]
+}

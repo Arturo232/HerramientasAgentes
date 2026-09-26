@@ -1,0 +1,411 @@
+{
+  "_doc": "Fuente de verdad del enrutado. Genera el CLI (agente), la ayuda, el esquema para IA y el servidor MCP. Ver docs/ARQUITECTURA_OBJETIVO.md",
+  "comandos": [
+    {
+      "id": "pdf",
+      "modulo": "documentos",
+      "script": "modulos/documentos/scripts/leer_pdf.py",
+      "descripcion": "Lee cualquier PDF (texto, tablas, escaneado/OCR) a Markdown + JSON",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true, "descripcion": "Ruta del PDF"}],
+      "opciones": [
+        {"nombre": "salida", "tipo": "ruta", "descripcion": "Carpeta de salida"},
+        {"nombre": "ocr", "tipo": "cadena", "valores": ["auto", "si", "no"]},
+        {"nombre": "paginas", "tipo": "cadena", "descripcion": "Rango, p.ej. 1-5"},
+        {"nombre": "motor", "tipo": "cadena", "valores": ["auto", "docling"]},
+        {"nombre": "forzar", "tipo": "bandera"},
+        {"nombre": "sin-imagenes", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "markdown"}, {"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "pdf-buscar",
+      "modulo": "documentos",
+      "script": "modulos/documentos/scripts/buscar_pdf.py",
+      "descripcion": "Busca fragmentos relevantes en un PDF (BM25) y devuelve solo esos trozos",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "consulta", "tipo": "cadena", "requerido": true},
+        {"nombre": "k", "tipo": "entero", "descripcion": "Numero de fragmentos (default 5)"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "pdf-resumir",
+      "modulo": "documentos",
+      "script": "modulos/documentos/scripts/resumir_pdf.py",
+      "descripcion": "Resumen extractivo local de un PDF (sin IA)",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "max", "tipo": "entero", "descripcion": "Maximo de ideas"},
+        {"nombre": "salida", "tipo": "ruta"}
+      ],
+      "produce": [{"tipo": "texto"}],
+      "delega_en": []
+    },
+    {
+      "id": "video",
+      "modulo": "edicion_video",
+      "script": "modulos/edicion_video/scripts/editar_video.py",
+      "descripcion": "Editar video (cortes, audio, conversión) con Shotcut/MLT + ffmpeg",
+      "entradas": [{"nombre": "comando", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["editar", "extraer-audio", "convertir"]}],
+      "opciones": [
+        {"nombre": "plan", "tipo": "ruta", "descripcion": "Plan JSON (para 'editar')"},
+        {"nombre": "input", "tipo": "ruta"},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "crf", "tipo": "entero"},
+        {"nombre": "escala", "tipo": "cadena"}
+      ],
+      "produce": [{"tipo": "video"}],
+      "delega_en": []
+    },
+    {
+      "id": "video-moderno",
+      "modulo": "edicion_video",
+      "script": "modulos/edicion_video/scripts/renderizar_moderno.py",
+      "descripcion": "Render moderno (9:16 / 16:9, karaoke, B-roll)",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "salida", "tipo": "ruta", "requerido": true},
+        {"nombre": "formato", "tipo": "cadena", "valores": ["vertical", "horizontal"]},
+        {"nombre": "ass", "tipo": "ruta"},
+        {"nombre": "crf", "tipo": "entero"}
+      ],
+      "produce": [{"tipo": "video"}],
+      "delega_en": []
+    },
+    {
+      "id": "subtitulos",
+      "modulo": "edicion_video",
+      "script": "modulos/edicion_video/scripts/subtitulos.py",
+      "descripcion": "Subtítulos automáticos con whisper",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "modelo", "tipo": "cadena", "valores": ["tiny", "base", "small", "medium", "large"]},
+        {"nombre": "idioma", "tipo": "cadena"},
+        {"nombre": "formato", "tipo": "cadena", "valores": ["srt", "vtt", "txt"]},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "quemar", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "subtitulos"}],
+      "delega_en": []
+    },
+    {
+      "id": "audio",
+      "modulo": "edicion_audio",
+      "script": "modulos/edicion_audio/scripts/procesar_audio.py",
+      "descripcion": "Mejorar voz y mezclar con música (ffmpeg)",
+      "entradas": [{"nombre": "comando", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["mejorar", "mezclar", "masterizar", "produccion"]}],
+      "opciones": [
+        {"nombre": "input", "tipo": "ruta", "requerido": true},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "musica", "tipo": "ruta"},
+        {"nombre": "sfx", "tipo": "ruta"},
+        {"nombre": "preset", "tipo": "cadena"},
+        {"nombre": "volumen", "tipo": "numero"}
+      ],
+      "produce": [{"tipo": "audio"}],
+      "delega_en": []
+    },
+    {
+      "id": "ensayo",
+      "modulo": "literatura",
+      "script": "modulos/literatura/scripts/generar_documento_apa.py",
+      "descripcion": "Compilar borrador Markdown a DOCX/PDF con normas APA 7",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true, "descripcion": "borrador.md"}],
+      "opciones": [
+        {"nombre": "output", "tipo": "ruta"},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "pdf", "tipo": "bandera"},
+        {"nombre": "estimar", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "docx"}, {"tipo": "pdf"}],
+      "delega_en": []
+    },
+    {
+      "id": "infografia",
+      "modulo": "artes_diseno",
+      "script": "modulos/artes_diseno/scripts/renderizador_playwright.py",
+      "descripcion": "Render HTML a PDF (infografías)",
+      "entradas": [{"nombre": "input", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "salida", "tipo": "ruta", "requerido": true},
+        {"nombre": "formato", "tipo": "cadena"}
+      ],
+      "produce": [{"tipo": "pdf"}],
+      "delega_en": []
+    },
+    {
+      "id": "pptx",
+      "modulo": "artes_diseno",
+      "script": "modulos/artes_diseno/scripts/motor_pptx_visual.py",
+      "descripcion": "Inyectar texto/imágenes en plantillas PPTX",
+      "entradas": [{"nombre": "plantilla", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "input", "tipo": "ruta", "descripcion": "JSON de etiquetas"},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "no-pdf", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "pptx"}, {"tipo": "pdf"}],
+      "delega_en": []
+    },
+    {
+      "id": "web",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/abrir_pagina.py",
+      "descripcion": "Abrir/extraer una página web",
+      "entradas": [{"nombre": "input", "tipo": "url", "requerido": true}],
+      "opciones": [
+        {"nombre": "modo", "tipo": "cadena", "valores": ["texto", "html", "captura"]},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "perfil", "tipo": "ruta"},
+        {"nombre": "visible", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "texto"}, {"tipo": "html"}, {"tipo": "png"}],
+      "delega_en": []
+    },
+    {
+      "id": "navegar",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/navegar.py",
+      "descripcion": "Navegación adaptativa (HTTP/Playwright/login)",
+      "entradas": [{"nombre": "input", "tipo": "url", "requerido": true}],
+      "opciones": [
+        {"nombre": "modo", "tipo": "cadena", "valores": ["texto", "html"]},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "perfil", "tipo": "ruta"},
+        {"nombre": "visible", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "texto"}, {"tipo": "html"}],
+      "delega_en": []
+    },
+    {
+      "id": "registro",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/registro.py",
+      "descripcion": "Memoria web: plataformas, sesiones y recetas",
+      "entradas": [{"nombre": "comando", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["plataforma", "sesion", "listar", "receta", "buscar-receta"]}, {"nombre": "que", "tipo": "cadena", "posicional": true, "valores": ["plataformas", "sesiones", "recetas"]}],
+      "opciones": [
+        {"nombre": "nombre", "tipo": "cadena"},
+        {"nombre": "url", "tipo": "cadena"},
+        {"nombre": "accion", "tipo": "cadena"},
+        {"nombre": "via", "tipo": "cadena"},
+        {"nombre": "resultado", "tipo": "cadena"},
+        {"nombre": "consulta", "tipo": "cadena"},
+        {"nombre": "archivo", "tipo": "ruta"},
+        {"nombre": "descripcion", "tipo": "cadena"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "sima-token",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/sima_token.py",
+      "descripcion": "Obtener/guardar token de la API de Moodle (SIMA). Interactivo (pide credenciales).",
+      "entradas": [],
+      "opciones": [
+        {"nombre": "estado", "tipo": "bandera"},
+        {"nombre": "borrar", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "moodle-api",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/moodle_api.py",
+      "descripcion": "API REST de Moodle/SIMA (site, cursos, estructura, archivos)",
+      "entradas": [{"nombre": "cmd", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["site", "cursos", "contenidos", "tareas", "estructura", "archivos"]}],
+      "opciones": [
+        {"nombre": "curso", "tipo": "entero"},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "sin-cache", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "moodle-inventario",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/inventario_moodle.py",
+      "descripcion": "Inventario de actividades de un curso Moodle (por CDP)",
+      "entradas": [{"nombre": "curso", "tipo": "entero", "requerido": true}],
+      "opciones": [
+        {"nombre": "base", "tipo": "url"},
+        {"nombre": "secciones", "tipo": "entero"},
+        {"nombre": "pendientes", "tipo": "bandera"},
+        {"nombre": "salida", "tipo": "ruta"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "moodle-h5p",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/h5p_solver.py",
+      "descripcion": "Resolver/ejecutar actividades H5P (por CDP)",
+      "entradas": [],
+      "opciones": [
+        {"nombre": "url", "tipo": "url"},
+        {"nombre": "list", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "moodle-batch",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/batch_moodle.py",
+      "descripcion": "Resolver actividades H5P por lotes desde un inventario",
+      "entradas": [],
+      "opciones": [
+        {"nombre": "inventario", "tipo": "ruta"},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "secciones", "tipo": "entero"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": ["moodle-h5p"]
+    },
+    {
+      "id": "descargar-unidad",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/descargar_unidad.py",
+      "descripcion": "Descargar módulos/adjuntos de una unidad de Moodle",
+      "entradas": [],
+      "opciones": [
+        {"nombre": "curso", "tipo": "entero"},
+        {"nombre": "materia", "tipo": "cadena"},
+        {"nombre": "unidad", "tipo": "entero"},
+        {"nombre": "salida", "tipo": "ruta"},
+        {"nombre": "solo-modulos", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "archivos"}],
+      "delega_en": ["moodle-api"]
+    },
+    {
+      "id": "sesion-cdp",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/sesion_cdp.py",
+      "descripcion": "Sesión controlada por CDP (Chrome visible, perfil aislado)",
+      "entradas": [{"nombre": "cmd", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["abrir", "paginas", "texto", "html", "captura", "ir", "click", "escribir", "esperar", "evaluar", "links", "frames", "ftexto", "feval", "fclick", "fkey"]}],
+      "opciones": [
+        {"nombre": "puerto", "tipo": "entero"},
+        {"nombre": "perfil", "tipo": "ruta"}
+      ],
+      "produce": [{"tipo": "texto"}, {"tipo": "png"}],
+      "delega_en": []
+    },
+    {
+      "id": "google",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/scripts/google_api.py",
+      "descripcion": "Google Drive/Docs por API (subir, listar, compartir...)",
+      "entradas": [{"nombre": "cmd", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["auth", "subir", "compartir", "materias", "listar", "renombrar", "actualizar", "eliminar"]}],
+      "opciones": [
+        {"nombre": "carpeta", "tipo": "cadena"},
+        {"nombre": "archivo", "tipo": "ruta"},
+        {"nombre": "nombre", "tipo": "cadena"},
+        {"nombre": "file", "tipo": "cadena"},
+        {"nombre": "rol", "tipo": "cadena", "valores": ["writer", "reader", "commenter"]},
+        {"nombre": "convertir", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "canva",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/recetas/canva.py",
+      "descripcion": "Canva por CDP: plantillas, textos, reemplazar, exportar",
+      "entradas": [{"nombre": "cmd", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["estado", "plantillas", "usar", "textos", "reemplazar", "exportar"]}],
+      "opciones": [
+        {"nombre": "buscar", "tipo": "cadena"},
+        {"nombre": "plantilla", "tipo": "url"},
+        {"nombre": "mapa", "tipo": "json"},
+        {"nombre": "formato", "tipo": "cadena", "valores": ["png", "pdf", "jpg"]},
+        {"nombre": "salida", "tipo": "ruta"}
+      ],
+      "produce": [{"tipo": "png"}, {"tipo": "pdf"}],
+      "delega_en": []
+    },
+    {
+      "id": "mentefacto",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/recetas/mentefacto.py",
+      "descripcion": "Generar mentefacto/mapa conceptual (HTML -> PDF/PNG)",
+      "entradas": [{"nombre": "contenido", "tipo": "ruta", "requerido": true, "descripcion": "JSON del mentefacto"}],
+      "opciones": [
+        {"nombre": "salida", "tipo": "ruta", "requerido": true},
+        {"nombre": "html", "tipo": "ruta"}
+      ],
+      "produce": [{"tipo": "pdf"}, {"tipo": "png"}],
+      "delega_en": []
+    },
+    {
+      "id": "diagrama",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/recetas/diagrama_flujo.py",
+      "descripcion": "Generar diagrama de flujo vertical (HTML -> PDF/PNG)",
+      "entradas": [{"nombre": "contenido", "tipo": "ruta", "requerido": true, "descripcion": "JSON del diagrama"}],
+      "opciones": [
+        {"nombre": "salida", "tipo": "ruta", "requerido": true},
+        {"nombre": "html", "tipo": "ruta"}
+      ],
+      "produce": [{"tipo": "pdf"}, {"tipo": "png"}],
+      "delega_en": []
+    },
+    {
+      "id": "protocolo",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/recetas/docx_util.py",
+      "descripcion": "Llenar plantilla de protocolo DOCX y exportar a PDF",
+      "entradas": [{"nombre": "plantilla", "tipo": "ruta", "requerido": true}],
+      "opciones": [
+        {"nombre": "contenido", "tipo": "ruta", "requerido": true},
+        {"nombre": "salida", "tipo": "ruta", "requerido": true},
+        {"nombre": "titulo", "tipo": "cadena"},
+        {"nombre": "pdf", "tipo": "bandera"}
+      ],
+      "produce": [{"tipo": "docx"}, {"tipo": "pdf"}],
+      "delega_en": []
+    },
+    {
+      "id": "drive",
+      "modulo": "navegacion_web",
+      "script": "modulos/navegacion_web/recetas/drive_google.py",
+      "descripcion": "Subir/compartir en Google Drive por CDP",
+      "entradas": [{"nombre": "cmd", "tipo": "cadena", "posicional": true, "requerido": true, "valores": ["subir", "compartir", "convertir"]}],
+      "opciones": [
+        {"nombre": "carpeta", "tipo": "cadena"},
+        {"nombre": "archivos", "tipo": "ruta"},
+        {"nombre": "docx", "tipo": "ruta"},
+        {"nombre": "url", "tipo": "url"}
+      ],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "run",
+      "modulo": "nucleo",
+      "script": "agente.py",
+      "descripcion": "Ejecuta un pipeline declarativo (flujo.json) encadenando módulos",
+      "entradas": [{"nombre": "flujo", "tipo": "ruta", "posicional": true, "requerido": true}],
+      "opciones": [],
+      "produce": [{"tipo": "json"}],
+      "delega_en": []
+    },
+    {
+      "id": "sync",
+      "modulo": "nucleo",
+      "script": "sincronizar_skills.py",
+      "sin_json": true,
+      "descripcion": "Sincronizar skills del repo con OpenCode",
+      "entradas": [],
+      "opciones": [{"nombre": "dry-run", "tipo": "bandera"}],
+      "produce": [],
+      "delega_en": []
+    }
+  ]
+}

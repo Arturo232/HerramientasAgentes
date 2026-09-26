@@ -7,3 +7,27 @@ __pycache__/
 !plantillas/apa_base.docx
 borrador*.md
 diccionarios/
+
+# Binarios y modelos pesados de los modulos de edicion (no versionar)
+modulos/edicion_video/bin/
+modulos/edicion_video/models/
+modulos/edicion_audio/bin/
+modulos/edicion_audio/models/
+*.bin
+*.ggml
+*.exe
+.cache/
+
+# Navegacion web: perfiles y sesiones locales (nunca versionar)
+**/chrome-*/
+**/storage_state.json
+**/cookies*.json
+**/navegacion/sesiones.jsonl
+
+# Empaquetado y caches
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage

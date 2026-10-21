@@ -141,3 +141,21 @@ def test_redacta_tokens():
     assert "SUPERSECRETO" not in texto
     assert "ABCDEF" not in texto
     assert "AIza" not in texto
+
+
+def test_avisa_comandos_si_no_clasifica(cfg, monkeypatch):
+    puente = PuenteSelector(cfg)
+    monkeypatch.setattr(
+        puente,
+        "_ejecutar_selector",
+        lambda _args: {
+            "exito": False,
+            "mensaje": "No se pudo clasificar la intencion.",
+        },
+    )
+    with pytest.raises(ErrorEnrutamiento) as exc:
+        puente.enrutar("hola")
+    texto = str(exc.value)
+    assert "No entendí el comando" in texto
+    assert "estado del sistema" in texto
+    assert "REANUDAR" in texto

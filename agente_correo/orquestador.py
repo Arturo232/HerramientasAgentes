@@ -274,6 +274,12 @@ class PuenteSelector:
         datos = self._ejecutar_selector([f"--intencion={intencion}"])
         if not datos.get("exito"):
             mensaje = str(datos.get("mensaje", "Intención no clasificable"))
+            if "No se pudo clasificar" in mensaje:
+                mensaje = (
+                    "No entendí el comando. Envía en el cuerpo una de estas "
+                    "órdenes: 'estado del sistema', 'diagnóstico de red', "
+                    "'genera un excel de prueba', 'PAUSA' o 'REANUDAR'."
+                )
             raise ErrorEnrutamiento(redactar(mensaje))
         return self.validar_enrutamiento(datos, self.catalogo())
 

@@ -26,8 +26,9 @@ def cfg(tmp_path, monkeypatch):
     monkeypatch.setenv("MAX_ADJUNTOS_MB", "20")
     monkeypatch.setenv("TIMEOUT_TAREA", "30")
     monkeypatch.setenv("POLL_SEGUNDOS", "50")
+    # Vacío antes de cargar: evita que un .env local imponga su lista y hace
+    # que la configuración caiga en AUTORIZADO_FROM (arturo@example.com).
+    monkeypatch.setenv("DESTINATARIOS_PERMITIDOS", "")
     config = Config.cargar()
-    # Aísla los tests de un .env local con listas de destinatarios propias.
-    monkeypatch.delenv("DESTINATARIOS_PERMITIDOS", raising=False)
     config.preparar_directorios()
     return config

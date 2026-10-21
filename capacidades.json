@@ -1434,6 +1434,67 @@
           "descripcion": "peticion del usuario"
         }
       ]
+    },
+    {
+      "id": "correo",
+      "modulo": "correo",
+      "script": "scripts/correo/enviar_correo.py",
+      "descripcion": "Envia correos o responde en un hilo con Gmail; soporta adjuntos y dry-run",
+      "entradas": [],
+      "opciones": [
+        {
+          "nombre": "para",
+          "tipo": "cadena",
+          "requerido": true,
+          "descripcion": "Destinatario(s) separados por coma"
+        },
+        {
+          "nombre": "asunto",
+          "tipo": "cadena",
+          "descripcion": "Asunto del correo"
+        },
+        {
+          "nombre": "cuerpo",
+          "tipo": "cadena",
+          "descripcion": "Cuerpo en texto plano"
+        },
+        {
+          "nombre": "cuerpo-archivo",
+          "tipo": "ruta",
+          "descripcion": "Archivo UTF-8 con el cuerpo"
+        },
+        {
+          "nombre": "adjunto",
+          "tipo": "ruta",
+          "descripcion": "Adjunto; para varios usa args"
+        },
+        {
+          "nombre": "responder-a",
+          "tipo": "cadena",
+          "descripcion": "ID del mensaje original para conservar el hilo"
+        },
+        {
+          "nombre": "dry-run",
+          "tipo": "bandera",
+          "descripcion": "Escribe el .eml y no envia"
+        },
+        {
+          "nombre": "confirmar",
+          "tipo": "bandera",
+          "descripcion": "Permite destinatarios fuera de la lista"
+        },
+        {
+          "nombre": "permitir-rutas-externas",
+          "tipo": "bandera",
+          "descripcion": "Permite adjuntos fuera de entrada/ y out/"
+        }
+      ],
+      "produce": [
+        {
+          "tipo": "json"
+        }
+      ],
+      "delega_en": []
     }
   ]
 }

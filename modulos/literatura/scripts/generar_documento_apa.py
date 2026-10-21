@@ -293,7 +293,7 @@ def add_list(doc, tok):
         marker = f"{num}. " if ordered else "\u2022  "
         add_run_text(p, marker)
         for sub in item.get("children", []):
-            if sub["type"] == "paragraph":
+            if sub["type"] in ("paragraph", "block_text"):
                 render_inline(p, sub.get("children", []))
             elif sub["type"] in ("list", "blockquote"):
                 render_inline(p, sub.get("children", []))

@@ -31,7 +31,7 @@ from typing import Any
 from . import dispatcher, gmail_client
 from .config import Config, ErrorConfig
 from .db import BaseDatos
-from .orquestador import PuenteSelector, ResultadoTarea, redactar
+from .orquestador import ErrorEnrutamiento, PuenteSelector, ResultadoTarea, redactar
 from .parser import (
     Mensaje,
     detectar_control,
@@ -140,6 +140,19 @@ def _cuerpo_control(
         return f"{prefijo}Comando REANUDAR recibido, pero el agente ya estaba activo."
     return (
         f"{prefijo}Comando REANUDAR recibido. El agente vuelve a procesar correos."
+    )
+
+
+def _cuerpo_ayuda() -> str:
+    return (
+        "No entendí el comando. Este buzón no es un chat libre: responde con "
+        "una de estas órdenes, sola en el cuerpo:\n\n"
+        "- estado del sistema\n"
+        "- diagnóstico de red\n"
+        "- genera un excel de prueba\n"
+        "- PAUSA\n"
+        "- REANUDAR\n\n"
+        "Ejemplo: escribe solamente: estado del sistema"
     )
 
 
@@ -313,6 +326,22 @@ def procesar_payload(
     else:
         try:
             resultado = puente.ejecutar(intencion)
+        except ErrorEnrutamiento as exc:
+            if str(exc).startswith("No entendí el comando"):
+                resultado = None
+            else:
+                resultado = ResultadoTarea(
+                    ok=False,
+                    herramienta="(sin ejecutar)",
+                    comando=(),
+                    codigo=-1,
+                    stdout="",
+                    stderr="",
+                    datos=None,
+                    artefactos=(),
+                    duracion=0.0,
+                    error=redactar(str(exc)),
+                )
         except Exception as exc:
             resultado = ResultadoTarea(
                 ok=False,
@@ -326,6 +355,40 @@ def procesar_payload(
                 duracion=0.0,
                 error=redactar(str(exc)),
             )
+
+    if resultado is None:
+        try:
+            envio = dispatcher.responder_texto(
+                cfg,
+                mensaje,
+                _cuerpo_ayuda(),
+                servicio=servicio,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            log.exception("Falló el envío de la ayuda")
+            db.finalizar(
+                mensaje.clave_idempotencia,
+                "error_envio",
+                detalle=redactar(str(exc)),
+            )
+            if not dry_run:
+                _marcar(etiquetas, mensaje, "Error")
+            return "error_envio"
+        db.finalizar(
+            mensaje.clave_idempotencia,
+            "ayuda",
+            detalle="comando no reconocido",
+        )
+        log.info(
+            "Ayuda %s",
+            "guardada en " + str(envio.get("ruta"))
+            if not envio.get("enviado")
+            else "enviada",
+        )
+        if not dry_run:
+            _marcar(etiquetas, mensaje, "Procesado")
+        return "ayuda"
 
     estado = "ok" if resultado.ok else "error"
     ejecutada = not dry_run and resultado.herramienta in {

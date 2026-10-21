@@ -6,7 +6,12 @@ from pathlib import Path
 
 from agente_correo import listener
 from agente_correo.db import BaseDatos
-from agente_correo.orquestador import Enrutamiento, ResultadoTarea, PuenteSelector
+from agente_correo.orquestador import (
+    Enrutamiento,
+    ErrorEnrutamiento,
+    ResultadoTarea,
+    PuenteSelector,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -165,4 +170,41 @@ def test_limite_hora_no_ejecuta(cfg, tmp_path, monkeypatch):
     )
     assert desenlace == "limite"
     assert ejecutado == []
+    db.cerrar()
+
+
+def test_comando_no_entendido_responde_ayuda(cfg, tmp_path, monkeypatch):
+    db = BaseDatos(tmp_path / "test.db")
+    puente = PuenteSelector(cfg)
+    monkeypatch.setattr(
+        puente,
+        "ejecutar",
+        lambda _intencion: (_ for _ in ()).throw(
+            ErrorEnrutamiento(
+                "No entendí el comando. Envía una orden válida."
+            )
+        ),
+    )
+    capturado = {}
+
+    def _responder_texto(cfg_, mensaje, cuerpo, **kwargs):
+        capturado["cuerpo"] = cuerpo
+        return {"enviado": False, "ruta": "/tmp/ayuda.eml"}
+
+    monkeypatch.setattr(listener.dispatcher, "responder_texto", _responder_texto)
+    desenlace = listener.procesar_payload(
+        _payload("correo_autorizado.json"),
+        cfg,
+        db,
+        puente,
+        dry_run=False,
+        servicio=None,
+        etiquetas=None,
+    )
+    assert desenlace == "ayuda"
+    assert "No entendí el comando" in capturado["cuerpo"]
+    assert "estado del sistema" in capturado["cuerpo"]
+    assert "REANUDAR" in capturado["cuerpo"]
+    fila = db.obtener("<autorizado-001@example.com>")
+    assert fila["estado"] == "ayuda"
     db.cerrar()

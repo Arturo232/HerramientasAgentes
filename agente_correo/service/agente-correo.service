@@ -1,0 +1,41 @@
+[Unit]
+Description=Agente de correo 24/7 (Gmail API + selector HerramientasAgente)
+Documentation=file:%h/Documentos/HerramientasAgente/agente_correo/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documentos/HerramientasAgente
+EnvironmentFile=%h/Documentos/HerramientasAgente/agente_correo/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=LANG=C.UTF-8
+ExecStart=%h/Documentos/HerramientasAgente/.venv/bin/python -m agente_correo.listener
+Restart=always
+RestartSec=15
+TimeoutStopSec=30
+KillMode=mixed
+SyslogIdentifier=agente-correo
+StandardOutput=journal
+StandardError=journal
+UMask=0077
+
+# Endurecimiento. secrets/ se deja de solo lectura: el refresh token se usa
+# en memoria; si Google lo rotara, se vuelve a ejecutar oauth_login.py.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/Documentos/HerramientasAgente/agente_correo/data
+ReadWritePaths=%h/Documentos/HerramientasAgente/agente_correo/out
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=default.target

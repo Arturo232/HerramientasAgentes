@@ -1,0 +1,63 @@
+{
+  "id": "denegado-001",
+  "threadId": "hilo-denegado-001",
+  "labelIds": [
+    "UNREAD",
+    "INBOX"
+  ],
+  "payload": {
+    "partId": "",
+    "mimeType": "multipart/alternative",
+    "filename": "",
+    "headers": [
+      {
+        "name": "From",
+        "value": "intruso@example.net"
+      },
+      {
+        "name": "To",
+        "value": "caballerotaitus7@gmail.com"
+      },
+      {
+        "name": "Subject",
+        "value": "Limpieza"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<denegado-001@example.com>"
+      },
+      {
+        "name": "References",
+        "value": "<hilo-previo@example.com>"
+      },
+      {
+        "name": "Date",
+        "value": "Tue, 20 Oct 2026 10:00:00 -0500"
+      },
+      {
+        "name": "MIME-Version",
+        "value": "1.0"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "1",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=UTF-8"
+          }
+        ],
+        "body": {
+          "size": 18,
+          "data": "bGltcGlhciBlbCBzaXN0ZW1h"
+        }
+      }
+    ]
+  }
+}

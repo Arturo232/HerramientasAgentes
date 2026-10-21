@@ -1,0 +1,21 @@
+# Secretos locales (nunca versionar)
+secrets/
+.env
+token.json
+client_secret.json
+*.pem
+*.key
+
+# Datos y salidas del agente
+data/
+out/
+entrada/
+*.db
+*.db-wal
+*.db-shm
+*.eml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
